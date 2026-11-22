@@ -1,0 +1,321 @@
+# Rubrica local deployment (01-interfaces.md §2; task E2).
+#
+# Run from the repo root with `make up` (needs `make secrets` once).
+# Paths below are relative to this file's directory (deploy/).
+#
+# Every container: non-root, read-only root filesystem, all capabilities
+# dropped, no-new-privileges, healthcheck, images pinned by digest (C16).
+# Services marked "placeholder" run backend/common/placeholder.py until their
+# owner replaces `command:` with the real entry point.
+
+name: rubrica
+
+x-hardened: &hardened
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  init: true
+  tmpfs:
+    - /tmp:size=32m,mode=1777
+
+x-backend: &backend
+  <<: *hardened
+  build:
+    context: ..
+    dockerfile: deploy/backend.Dockerfile
+    target: runtime
+  environment: &backend-env
+    PORT: "8000"
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: rubrica
+
+x-agent-env: &agent-env
+  <<: *backend-env
+  LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+  LLM_BUDGET_USD_DAILY: ${LLM_BUDGET_USD_DAILY:-5}
+  HTTPS_PROXY: http://llm-proxy:3128
+  HTTP_PROXY: http://llm-proxy:3128
+  NO_PROXY: mcp-server,web,db,localhost,127.0.0.1
+  LLM_API_KEY_FILE: /run/secrets/llm_api_key
+  MCP_SERVER_URL: http://mcp-server:8000/mcp
+
+services:
+  # ------------------------------------------------------------ 1 Web app
+  web:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: deploy/backend.Dockerfile
+      target: web
+    command: ["python", "-m", "backend.common.placeholder", "web"]  # placeholder
+    networks: [public, internal]
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8000"
+    environment:
+      <<: *backend-env
+      DB_ROLE: rubrica_web
+      SMTP_HOST: mailpit
+    secrets:
+      - db_web_password
+      - service_auth_web
+      - token_pepper
+      - session_secret
+      - totp_encryption_key
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db: { condition: service_healthy }
+
+  # ------------------------------------------------------------ 2 Grading agent
+  grading-agent:
+    <<: *backend
+    command: ["python", "-m", "backend.common.placeholder", "grading-agent"]  # placeholder
+    networks: [internal, llm-egress]
+    environment:
+      <<: *agent-env
+      DB_ROLE: rubrica_grading
+      FETCHER_URL: http://fetcher:8000
+    secrets:
+      - db_grading_password
+      - service_auth_web            # verifies calls from web
+      - service_auth_grading_agent  # authenticates to the fetcher
+      - llm_api_key
+    depends_on:
+      db: { condition: service_healthy }
+      llm-proxy: { condition: service_healthy }
+
+  # ------------------------------------------------------------ 2.5 Fetcher
+  fetcher:
+    <<: *backend
+    command: ["python", "-m", "backend.common.placeholder", "fetcher"]  # placeholder
+    networks: [internal, web-egress]
+    environment:
+      <<: *backend-env
+      DB_ROLE: rubrica_fetch
+      HTTPS_PROXY: http://web-proxy:3128
+      HTTP_PROXY: http://web-proxy:3128
+      NO_PROXY: db,localhost,127.0.0.1
+    secrets:
+      - db_fetch_password           # insert web_snapshots only (D8)
+      - service_auth_grading_agent  # verifies calls from grading-agent
+    depends_on:
+      db: { condition: service_healthy }
+      web-proxy: { condition: service_healthy }
+
+  # ------------------------------------------------------------ 3 Student chat agent
+  chat-agent:
+    <<: *backend
+    command: ["python", "-m", "backend.common.placeholder", "chat-agent"]  # placeholder
+    networks: [internal, llm-egress]
+    environment:
+      <<: *agent-env
+    secrets:
+      - service_auth_web
+      - llm_api_key
+    depends_on:
+      llm-proxy: { condition: service_healthy }
+
+  # ------------------------------------------------------------ 4 Instructor agent
+  instructor-agent:
+    <<: *backend
+    command: ["python", "-m", "backend.common.placeholder", "instructor-agent"]  # placeholder
+    networks: [internal, llm-egress]
+    environment:
+      <<: *agent-env
+    secrets:
+      - service_auth_web
+      - llm_api_key
+    depends_on:
+      llm-proxy: { condition: service_healthy }
+
+  # ------------------------------------------------------------ 5 Ingestion worker
+  ingestion:
+    <<: *backend
+    command: ["python", "-m", "backend.common.placeholder", "ingestion"]  # placeholder
+    networks: [internal]
+    environment:
+      <<: *backend-env
+      DB_ROLE: rubrica_ingest
+    secrets:
+      - db_ingest_password
+    volumes:
+      - parse-in:/data/parse-in
+      - parse-out:/data/parse-out
+    depends_on:
+      db: { condition: service_healthy }
+
+  # ------------------------------------------------------------ 5 Parser (isolated, T-15)
+  parser:
+    <<: *backend
+    command: ["python", "-m", "backend.common.placeholder", "parser"]  # placeholder
+    network_mode: none            # no network at all
+    restart: unless-stopped
+    environment:
+      RUBRICA_NO_NETWORK: "1"
+      PARSE_TIMEOUT_SECONDS: "30"
+    # No secrets: a malicious parser library has nothing to steal.
+    volumes:
+      - parse-in:/data/parse-in:ro
+      - parse-out:/data/parse-out
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 64
+
+  # ------------------------------------------------------------ 6 MCP server
+  mcp-server:
+    <<: *backend
+    command: ["python", "-m", "backend.common.placeholder", "mcp-server"]  # placeholder
+    networks: [internal]
+    environment:
+      <<: *backend-env
+      DB_ROLE: rubrica_mcp
+      MCP_AUDIENCE: mcp-server
+    secrets:
+      - db_mcp_password
+      - token_pepper                # verifies capability tokens (C32)
+    depends_on:
+      db: { condition: service_healthy }
+
+  # ------------------------------------------------------------ 7 Release service
+  release:
+    <<: *backend
+    command: ["python", "-m", "backend.common.placeholder", "release"]  # placeholder
+    networks: [internal]
+    environment:
+      <<: *backend-env
+      DB_ROLE: rubrica_release
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+    secrets:
+      - db_release_password
+      - service_auth_web
+    depends_on:
+      db: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+
+  # ------------------------------------------------------------ D1-D11 Database
+  db:
+    <<: *hardened
+    image: pgvector/pgvector@sha256:508c5290cda481d4f5f846446a26e9c1b804766828a394a5861de1b348a18b4c  # 0.8.1-pg18
+    user: "999:999"               # postgres; started non-root so no chown/gosu needed
+    networks: [internal]
+    environment:
+      POSTGRES_DB: rubrica
+      POSTGRES_USER: rubrica_owner
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_owner_password
+    # D's role migration reads the per-role passwords from these files.
+    secrets:
+      - db_owner_password
+      - db_web_password
+      - db_ingest_password
+      - db_grading_password
+      - db_mcp_password
+      - db_release_password
+      - db_fetch_password
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=1m,uid=999,gid=999,mode=0775
+    volumes:
+      - pgdata:/var/lib/postgresql
+    shm_size: 128m
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "rubrica_owner", "-d", "rubrica"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ------------------------------------------------------------ E5 Mailpit
+  mailpit:
+    <<: *hardened
+    image: axllent/mailpit@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68  # v1.27
+    user: "65534:65534"
+    # mail-ui exists only so the UI port can be published (Docker can't publish
+    # ports from a container that is only on internal networks). See the PR
+    # notes: this gives Mailpit an outbound route; it holds synthetic mail only.
+    networks: [internal, mail-ui]
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_SMTP_BIND_ADDR: 0.0.0.0:1025
+      MP_UI_BIND_ADDR: 0.0.0.0:8025
+      MP_MAX_MESSAGES: "5000"
+      MP_DISABLE_VERSION_CHECK: "true"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ------------------------------------------------------------ Egress proxies
+  llm-proxy:
+    <<: *hardened
+    image: ubuntu/squid@sha256:c9f5212b147a766529c7b026e2bebed37b998d33d0066b658596af5eba7cc65c  # 6.10-24.10_beta
+    user: "13:13"                 # proxy
+    entrypoint: ["squid", "-N", "-f", "/etc/squid/squid.conf"]
+    networks: [llm-egress, public]
+    volumes:
+      - ./proxy/llm-proxy.conf:/etc/squid/squid.conf:ro
+      - ./proxy/llm-allowlist.txt:/etc/squid/llm-allowlist.txt:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/spool/squid:size=16m,uid=13,gid=13
+      - /var/log/squid:size=16m,uid=13,gid=13
+      - /run:size=1m,uid=13,gid=13
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/3128"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web-proxy:
+    <<: *hardened
+    image: ubuntu/squid@sha256:c9f5212b147a766529c7b026e2bebed37b998d33d0066b658596af5eba7cc65c  # 6.10-24.10_beta
+    user: "13:13"
+    entrypoint: ["squid", "-N", "-f", "/etc/squid/squid.conf"]
+    networks: [web-egress, public]
+    volumes:
+      - ./proxy/web-proxy.conf:/etc/squid/squid.conf:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/spool/squid:size=16m,uid=13,gid=13
+      - /var/log/squid:size=16m,uid=13,gid=13
+      - /run:size=1m,uid=13,gid=13
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/3128"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  public: {}
+  mail-ui: {}
+  internal:
+    internal: true
+  llm-egress:
+    internal: true
+  web-egress:
+    internal: true
+
+volumes:
+  pgdata: {}
+  uploads: {}
+  parse-in: {}
+  parse-out: {}
+
+secrets:
+  db_owner_password:          { file: ../secrets/db_owner_password }
+  db_web_password:            { file: ../secrets/db_web_password }
+  db_ingest_password:         { file: ../secrets/db_ingest_password }
+  db_grading_password:        { file: ../secrets/db_grading_password }
+  db_mcp_password:            { file: ../secrets/db_mcp_password }
+  db_release_password:        { file: ../secrets/db_release_password }
+  db_fetch_password:          { file: ../secrets/db_fetch_password }
+  service_auth_web:           { file: ../secrets/service_auth_web }
+  service_auth_grading_agent: { file: ../secrets/service_auth_grading_agent }
+  token_pepper:               { file: ../secrets/token_pepper }
+  session_secret:             { file: ../secrets/session_secret }
+  totp_encryption_key:        { file: ../secrets/totp_encryption_key }
+  llm_api_key:                { file: ../secrets/llm_api_key }
