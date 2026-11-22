@@ -1,0 +1,29 @@
+# Code owners (docs/plan/E-platform-devsecops-engineer.md, E1).
+# Later rules win. Every PR also needs one approving review from any member.
+#
+# Known handles: E = @AabedCodes. The other roles still need their GitHub
+# handles filled in; until then those paths fall back to the default rule.
+# TODO(team): replace each <B>/<C>/<D> placeholder line with the real handle
+# and uncomment it.
+
+*                                        @omaaryouussef @JoudyElGayar @AabedCodes
+
+/01-interfaces.md                        @AabedCodes
+# /01-interfaces.md                      @<B> @<C> @<D> @AabedCodes
+
+/deploy/                                 @AabedCodes
+/.github/                                @AabedCodes
+/backend/identity/                       @AabedCodes
+/scripts/                                @AabedCodes
+/aibom/                                  @AabedCodes
+/security/                               @AabedCodes
+/CODEOWNERS                              @AabedCodes
+
+# /backend/mcp_server/                   @<C>
+# /prompts/                              @<C>
+# /tests/unit/snapshots/mcp_tools.json   @<C> @<B>
+# /backend/db/                           @<D>
+
+/CLAUDE.md                               @AabedCodes
+/.claude/                                @AabedCodes
+# /CLAUDE.md  /.claude/                  @AabedCodes @<B>

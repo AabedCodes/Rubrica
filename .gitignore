@@ -1,0 +1,43 @@
+# Secrets: never committed
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+
+# Model caches and weights (pinned in aibom/models.lock, downloaded at build)
+models/
+.cache/
+huggingface/
+*.safetensors
+*.bin
+*.pkl
+*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Build and scan outputs
+sbom/
+scan-results/
+docs/verification/report.json
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Coding-assistant local overrides (the shared .claude/settings.json is committed)
+.claude/settings.local.json
