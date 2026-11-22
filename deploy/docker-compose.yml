@@ -51,7 +51,7 @@ services:
       dockerfile: deploy/backend.Dockerfile
       target: web
     command: ["python", "-m", "backend.common.placeholder", "web"]  # placeholder
-    networks: [public, internal]
+    networks: [ingress, internal]   # ingress: published port, no outbound NAT
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:8000"
     environment:
@@ -232,10 +232,9 @@ services:
     <<: *hardened
     image: axllent/mailpit@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68  # v1.27
     user: "65534:65534"
-    # mail-ui exists only so the UI port can be published (Docker can't publish
-    # ports from a container that is only on internal networks). See the PR
-    # notes: this gives Mailpit an outbound route; it holds synthetic mail only.
-    networks: [internal, mail-ui]
+    # Docker can't publish ports from a container that is only on internal
+    # networks, so the UI port goes through `ingress` (no outbound NAT).
+    networks: [internal, ingress]
     ports:
       - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
     environment:
@@ -290,8 +289,14 @@ services:
       retries: 5
 
 networks:
+  # Proxies only: the one network with a route to the internet.
   public: {}
-  mail-ui: {}
+  # Published ports (web, Mailpit UI). Masquerading off = inbound connections
+  # to published ports work, but containers have no outbound internet route.
+  ingress:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
   internal:
     internal: true
   llm-egress:

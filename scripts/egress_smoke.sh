@@ -58,6 +58,22 @@ expect_fail "fetcher via web-proxy http://169.254.169.254/" fetcher \
 expect_fail "fetcher via web-proxy http://127.0.0.1:3128/" fetcher \
   "$(via_web_proxy http://127.0.0.1:3128/)"
 
+echo "== mailpit: published UI but no outbound route"
+if "${COMPOSE[@]}" exec -T mailpit wget -q -T 5 -O /dev/null https://example.com >/dev/null 2>&1; then
+  echo "FAIL  mailpit direct https://example.com (should have been blocked)"; fail=1
+else
+  echo "ok    mailpit direct https://example.com (blocked)"
+fi
+
+echo "== published ports reachable from the host"
+for url in "http://127.0.0.1:8080/healthz" "http://127.0.0.1:8025/readyz"; do
+  if python3 -c "import urllib.request as u; u.urlopen('$url', timeout=5)" >/dev/null 2>&1; then
+    echo "ok    $url"
+  else
+    echo "FAIL  $url not reachable from the host"; fail=1
+  fi
+done
+
 echo "== parser: no network, no secrets (T-15)"
 expect_fail "parser tcp db:5432" parser "$(tcp db 5432)"
 expect_fail "parser tcp 1.1.1.1:443" parser "$(tcp 1.1.1.1 443)"
@@ -66,8 +82,11 @@ if "${COMPOSE[@]}" exec -T parser sh -c 'ls -A /run/secrets 2>/dev/null | grep -
 else
   echo "ok    parser has no secrets mounted"
 fi
-if "${COMPOSE[@]}" exec -T parser env | grep -Eiq '(password|secret|token|key)='; then
-  echo "FAIL  parser environment contains a credential-looking variable"; fail=1
+# GPG_KEY is set by the official python image: the ID of CPython's public
+# release-signing key, not a secret. Print names only, never values.
+suspicious=$("${COMPOSE[@]}" exec -T parser env | cut -d= -f1   | grep -Ei '(password|secret|token|key|credential)' | grep -vx 'GPG_KEY')
+if [ -n "$suspicious" ]; then
+  echo "FAIL  parser environment has credential-looking variables: $suspicious"; fail=1
 else
   echo "ok    parser environment has no credential-looking variables"
 fi
