@@ -1,0 +1,39 @@
+# Mini-report gate: every PR adds or updates an entry in docs/worklog/
+# (see docs/worklog/README.md). Label a PR `no-worklog` to skip.
+# Only SHAs from the event payload reach the shell, via env vars.
+name: worklog
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  worklog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Skipped by label
+        if: contains(github.event.pull_request.labels.*.name, 'no-worklog')
+        run: echo "PR is labelled no-worklog; skipping."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-worklog') }}
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a docs/worklog entry
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-worklog') }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- docs/worklog \
+            | grep -vE '^docs/worklog/(README|_template)\.md$' || true)
+          if [ -z "$changed" ]; then
+            echo "::error::No mini report. Add docs/worklog/YYYY-MM-DD-<task>-<slug>.md (copy docs/worklog/_template.md), or ask for the no-worklog label."
+            exit 1
+          fi
+          echo "Worklog entries in this PR:"
+          echo "$changed"
