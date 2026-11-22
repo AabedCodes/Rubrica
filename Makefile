@@ -1,5 +1,5 @@
 # Rubrica make targets (01-interfaces.md §1). Needs only Docker and make for `up`.
-COMPOSE := docker compose --project-directory . -f deploy/docker-compose.yml
+COMPOSE := docker compose -f deploy/docker-compose.yml
 UV      := uv run --project backend --frozen
 
 .PHONY: help secrets up down logs ps seed test lint verify verify-live sbom scan pins
