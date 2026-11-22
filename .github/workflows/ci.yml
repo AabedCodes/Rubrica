@@ -1,0 +1,91 @@
+# CI skeleton (task E3). Full gates (deps, secrets, models, admission, images,
+# sbom) arrive in E8. Rules (C16): least-privilege token, every action pinned
+# to a full commit SHA, never pull_request_target.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.13.9"
+  LLM_PROVIDER: fake
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.13"
+          enable-cache: false
+      - name: Install (hash-locked, fails if uv.lock is stale)
+        run: uv sync --project backend --frozen
+      - name: Ruff
+        run: |
+          uv run --project backend --frozen ruff check backend scripts tests
+          uv run --project backend --frozen ruff format --check backend scripts tests
+
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.13"
+          enable-cache: false
+      - name: Install (hash-locked)
+        run: uv sync --project backend --frozen
+      - name: Unit, authz and deterministic verification tests
+        run: uv run --project backend --frozen pytest tests
+
+  pins:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Actions, images and FROM lines pinned; lockfiles present
+        run: python3 scripts/check_pins.py .
+
+  compose-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Create throwaway secrets
+        run: python3 scripts/make_secrets.py
+      - name: Validate Compose file
+        run: docker compose -f deploy/docker-compose.yml config --quiet
+      - name: make up (build, start, wait for every healthcheck)
+        run: make up
+      - name: Egress and isolation checks
+        run: bash scripts/egress_smoke.sh
+      - name: Service status and logs
+        if: always()
+        run: |
+          docker compose -f deploy/docker-compose.yml ps -a
+          docker compose -f deploy/docker-compose.yml logs --no-color --tail=100
+      - name: Tear down
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml down --volumes
