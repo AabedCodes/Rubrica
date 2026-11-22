@@ -1,0 +1,99 @@
+# Well-known packages used by scripts/admission_check.py for lookalike detection.
+# Format: <ecosystem> <name>. Keep every package in our lockfiles here, plus the
+# most-downloaded packages in each ecosystem (common typosquatting targets).
+
+# --- PyPI: our stack (01-interfaces.md, M1 inventory) ---
+pypi fastapi
+pypi starlette
+pypi uvicorn
+pypi pydantic
+pypi pydantic-settings
+pypi sqlalchemy
+pypi alembic
+pypi psycopg
+pypi pgvector
+pypi argon2-cffi
+pypi pyotp
+pypi cryptography
+pypi mcp
+pypi httpx
+pypi sentence-transformers
+pypi transformers
+pypi torch
+pypi safetensors
+pypi huggingface-hub
+pypi pyyaml
+pypi jinja2
+pypi markdown-it-py
+pypi nh3
+pypi bleach
+pypi pypdf
+pypi python-docx
+pypi python-multipart
+pypi pytest
+pypi pytest-asyncio
+pypi ruff
+pypi uv
+pypi pip-audit
+pypi cyclonedx-bom
+pypi modelscan
+pypi playwright
+
+# --- PyPI: most-downloaded (typosquat targets) ---
+pypi requests
+pypi urllib3
+pypi numpy
+pypi pandas
+pypi setuptools
+pypi certifi
+pypi idna
+pypi charset-normalizer
+pypi six
+pypi boto3
+pypi botocore
+pypi python-dateutil
+pypi packaging
+pypi typing-extensions
+pypi click
+pypi attrs
+pypi aiohttp
+pypi openai
+pypi anthropic
+pypi langchain
+pypi scipy
+pypi scikit-learn
+pypi pillow
+pypi colorama
+pypi beautifulsoup4
+pypi lxml
+pypi django
+pypi flask
+
+# --- npm: our stack ---
+npm react
+npm react-dom
+npm vite
+npm typescript
+npm @vitejs/plugin-react
+npm vitest
+npm @playwright/test
+npm dompurify
+npm react-markdown
+npm eslint
+
+# --- npm: most-downloaded (typosquat targets) ---
+npm lodash
+npm express
+npm axios
+npm chalk
+npm commander
+npm debug
+npm moment
+npm webpack
+npm next
+npm vue
+npm jquery
+npm uuid
+npm dotenv
+npm tslib
+npm prettier
