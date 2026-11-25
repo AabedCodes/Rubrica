@@ -5,7 +5,16 @@ description = "Rubrica: agent-assisted grading with human approval"
 requires-python = ">=3.13,<3.14"
 # Runtime dependencies are added by their owners with `uv add <pkg>` after
 # running scripts/admission_check.py (CLAUDE.md). Never edit uv.lock by hand.
-dependencies = []
+dependencies = [
+    "alembic==1.16.2",
+    "argon2-cffi==25.1.0",
+    "faker==37.4.0",
+    "mistune==3.1.3",
+    "pgvector==0.4.1",
+    "psycopg[binary]==3.2.9",
+    "pypdf==7.1.0",
+    "sqlalchemy==2.0.41",
+]
 
 [dependency-groups]
 dev = [

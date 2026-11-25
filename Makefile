@@ -23,15 +23,17 @@ logs: ## Follow logs of all services
 ps: ## Show service status
 	$(COMPOSE) ps
 
-seed: ## Load synthetic seed data (owner D, task D-seed)
-	@echo "make seed: not implemented yet (owner: D)"; exit 1
+CANARIES ?= 0
+
+seed: ## Load synthetic demo data; set CANARIES=1 for security fixtures
+	$(COMPOSE) run --rm -T -e CANARIES=$(CANARIES) migrate python -m seed.generate
 
 test: ## Unit, authz and deterministic verification tests
 	LLM_PROVIDER=fake $(UV) pytest tests
 
 lint: ## Ruff over Python code
-	$(UV) ruff check backend scripts tests
-	$(UV) ruff format --check backend scripts tests
+	$(UV) ruff check backend scripts seed tests
+	$(UV) ruff format --check backend scripts seed tests
 
 pins: ## Check that actions, images and lockfiles are pinned
 	python3 scripts/check_pins.py . || python scripts/check_pins.py .

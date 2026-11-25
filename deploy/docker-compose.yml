@@ -67,7 +67,7 @@ services:
     volumes:
       - uploads:/data/uploads
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   # ------------------------------------------------------------ 2 Grading agent
   grading-agent:
@@ -84,7 +84,7 @@ services:
       - service_auth_grading_agent  # authenticates to the fetcher
       - llm_api_key
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       llm-proxy: { condition: service_healthy }
 
   # ------------------------------------------------------------ 2.5 Fetcher
@@ -102,7 +102,7 @@ services:
       - db_fetch_password           # insert web_snapshots only (D8)
       - service_auth_grading_agent  # verifies calls from grading-agent
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       web-proxy: { condition: service_healthy }
 
   # ------------------------------------------------------------ 3 Student chat agent
@@ -145,12 +145,12 @@ services:
       - parse-in:/data/parse-in
       - parse-out:/data/parse-out
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   # ------------------------------------------------------------ 5 Parser (isolated, T-15)
   parser:
     <<: *backend
-    command: ["python", "-m", "backend.common.placeholder", "parser"]  # placeholder
+    command: ["python", "-m", "backend.ingestion.parser"]
     network_mode: none            # no network at all
     restart: unless-stopped
     environment:
@@ -177,7 +177,7 @@ services:
       - db_mcp_password
       - token_pepper                # verifies capability tokens (C32)
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   # ------------------------------------------------------------ 7 Release service
   release:
@@ -193,8 +193,29 @@ services:
       - db_release_password
       - service_auth_web
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       mailpit: { condition: service_healthy }
+
+  # ------------------------------------------------------------ D1 Schema migration (C31)
+  migrate:
+    <<: *backend
+    command: ["python", "-m", "backend.db.migrate"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    networks: [internal]
+    environment:
+      <<: *backend-env
+    secrets:
+      - db_owner_password
+      - db_web_password
+      - db_ingest_password
+      - db_grading_password
+      - db_mcp_password
+      - db_release_password
+      - db_fetch_password
+    depends_on:
+      db: { condition: service_healthy }
 
   # ------------------------------------------------------------ D1-D11 Database
   db:
@@ -206,15 +227,8 @@ services:
       POSTGRES_DB: rubrica
       POSTGRES_USER: rubrica_owner
       POSTGRES_PASSWORD_FILE: /run/secrets/db_owner_password
-    # D's role migration reads the per-role passwords from these files.
     secrets:
       - db_owner_password
-      - db_web_password
-      - db_ingest_password
-      - db_grading_password
-      - db_mcp_password
-      - db_release_password
-      - db_fetch_password
     tmpfs:
       - /tmp:size=64m,mode=1777
       - /var/run/postgresql:size=1m,uid=999,gid=999,mode=0775

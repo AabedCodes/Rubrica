@@ -40,6 +40,7 @@ RUN groupadd --system --gid 10001 rubrica \
  && chown -R 10001:10001 /data
 COPY --from=deps /opt/venv /opt/venv
 COPY backend /app/backend
+COPY seed /app/seed
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 \
