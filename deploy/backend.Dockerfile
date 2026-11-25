@@ -52,3 +52,14 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=5 CMD ["python", "-m", "backen
 # ---------------------------------------------------------------- web
 FROM runtime AS web
 COPY --from=frontend --chown=10001:10001 /src/frontend/dist /app/frontend_dist
+
+# ---------------------------------------------------------------- embeddings
+FROM deps AS embedding-assets
+RUN uv sync --frozen --no-dev --no-install-project --extra embedding
+COPY scripts/stage_embedding.py /tmp/stage_embedding.py
+COPY aibom/models.lock /opt/models/models.lock
+RUN python /tmp/stage_embedding.py /opt/models/models.lock /opt/models/bge-small-en-v1.5
+
+FROM runtime AS embedding
+COPY --from=embedding-assets /opt/venv /opt/venv
+COPY --from=embedding-assets /opt/models /opt/models

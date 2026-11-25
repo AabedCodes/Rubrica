@@ -24,6 +24,9 @@ Add a line for your entry here, newest first.
 
 | Date | Task | Entry | Author |
 |---|---|---|---|
+| 2026-11-26 | D4 | [Isolated document ingestion](2026-11-26-D4-document-ingestion.md) | D |
+| 2026-11-26 | D5 | [Course-scoped retrieval](2026-11-26-D5-scoped-retrieval.md) | D |
+| 2026-11-26 | D8 | [Citation URL preflight](2026-11-26-D8-citation-url-preflight.md) | D |
 | 2026-11-22 | X | [Worklog convention (this folder)](2026-11-22-X-worklog-convention.md) | E |
 | 2026-11-22 | E14 | [AI-assisted development policy, runbook, report drafts](2026-11-22-E14-policy-runbook-drafts.md) | E |
 | 2026-11-22 | E2 | [Edge proxy: egress gap on Docker Desktop](2026-11-22-E2-edge-proxy.md) | E |
