@@ -28,6 +28,13 @@ These rules apply to every coding assistant (Claude Code, Copilot, Cursor, and a
 - Don't change `prompts/`, `backend/mcp_server/descriptions.py`, `backend/mcp_server/tools.py`, `.github/workflows/` or `01-interfaces.md` unless the task is about them, and say so in the PR description.
 - Code must match `01-interfaces.md`. If it can't, propose a change to that file instead of quietly diverging.
 
+## Mini reports (required)
+
+- Whenever you finish a task from `docs/plan/`, or a meaningful piece of one, write a mini report in `docs/worklog/` **in the same PR**, before saying the work is done. Copy `docs/worklog/_template.md`, name the file `YYYY-MM-DD-<task-id>-<slug>.md` (use `X` for work outside the plan), and add a line to the index in `docs/worklog/README.md`.
+- Fill in every section. Record the small decisions (values chosen, alternatives rejected, things that failed), every deviation from `01-interfaces.md`, and the evidence (tests, CI runs, output). State which report sections the entry feeds.
+- Say honestly that an assistant wrote part of the work, which assistant, and which parts.
+- CI's `worklog` check fails a PR without an entry unless it has the `no-worklog` label. Don't add that label yourself; ask the human.
+
 ## Conventions
 
 - Python 3.13, imports rooted at the repository (`from backend.identity import tokens`).

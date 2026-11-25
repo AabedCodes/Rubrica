@@ -2,6 +2,10 @@
 
 <!-- One or two sentences. Link the task ID from docs/plan (e.g. E2, C3, D1). -->
 
+## Mini report
+
+- [ ] Added or updated an entry in `docs/worklog/` (template: `docs/worklog/_template.md`), or this PR has the `no-worklog` label because there was nothing to decide
+
 ## Threats and controls touched
 
 <!-- e.g. T-15, C14. Element IDs (processes, D1–D11, F1–F40, TB-1–TB-14) where relevant. Write "none" if none. -->
