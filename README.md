@@ -45,6 +45,8 @@ See [`01-interfaces.md` §1](01-interfaces.md#1-repository-layout-owner-e). Each
 
 - `main` is protected: every change goes through a pull request with one approving review and green CI.
 - Fill in the PR template, including whether an AI assistant wrote any of the change.
+- New teammate? Paste [`docs/teammate-onboarding-prompt.md`](docs/teammate-onboarding-prompt.md) into your coding assistant.
+- Every finished task gets a mini report in [`docs/worklog/`](docs/worklog/) in the same PR: what was done, how, the small decisions, evidence. The final report is built from these.
 - Before adding any dependency, run `python scripts/admission_check.py <pypi|npm> <package>` and paste the output into the PR. Never edit `uv.lock` or `package-lock.json` by hand.
 - Synthetic data only. Injection tests use `CANARY-T<nn>-<hex>` strings, never real payloads.
 - Coding assistants follow [`CLAUDE.md`](CLAUDE.md).
