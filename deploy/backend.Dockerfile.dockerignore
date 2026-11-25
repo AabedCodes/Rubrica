@@ -4,6 +4,10 @@
 backend/.venv/
 **/__pycache__/
 **/*.py[cod]
+!seed/
+!seed/**
+seed/**/__pycache__/
+seed/**/*.py[cod]
 !frontend/
 !frontend/**
 frontend/node_modules/

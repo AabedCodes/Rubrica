@@ -1,0 +1,2 @@
+Your grade for $assignment_title in $course_code has been released.
+Sign in to see it: $grade_url

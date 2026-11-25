@@ -150,7 +150,7 @@ services:
   # ------------------------------------------------------------ 5 Parser (isolated, T-15)
   parser:
     <<: *backend
-    command: ["python", "-m", "backend.common.placeholder", "parser"]  # placeholder
+    command: ["python", "-m", "backend.ingestion.parser"]
     network_mode: none            # no network at all
     restart: unless-stopped
     environment:
