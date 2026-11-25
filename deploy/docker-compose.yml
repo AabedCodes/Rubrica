@@ -134,7 +134,13 @@ services:
   # ------------------------------------------------------------ 5 Ingestion worker
   ingestion:
     <<: *backend
-    command: ["python", "-m", "backend.common.placeholder", "ingestion"]  # placeholder
+    build:
+      context: ..
+      dockerfile: deploy/backend.Dockerfile
+      target: embedding
+    command: ["python", "-m", "backend.ingestion.worker"]
+    healthcheck:
+      test: ["CMD", "env", "RUBRICA_NO_NETWORK=1", "python", "-m", "backend.common.healthcheck"]
     networks: [internal]
     environment:
       <<: *backend-env
@@ -142,10 +148,12 @@ services:
     secrets:
       - db_ingest_password
     volumes:
+      - uploads:/data/uploads:ro
       - parse-in:/data/parse-in
       - parse-out:/data/parse-out
     depends_on:
       migrate: { condition: service_completed_successfully }
+      parser: { condition: service_healthy }
 
   # ------------------------------------------------------------ 5 Parser (isolated, T-15)
   parser:

@@ -6,6 +6,7 @@ and allow the test owner and fixture roles to connect (e.g. a local trust cluste
 
 import os
 from datetime import UTC, datetime
+from hashlib import sha256
 from importlib import import_module
 from uuid import uuid4
 
@@ -26,6 +27,7 @@ from backend.db.models import (
     Enrollment,
     GradingResult,
     GradingRun,
+    Job,
     Material,
     MaterialChunk,
     ProposedGrade,
@@ -34,6 +36,9 @@ from backend.db.models import (
     User,
     WebSnapshot,
 )
+from backend.ingestion.index_material import index_material
+from backend.ingestion.worker import claim_job, finish_job
+from backend.retrieval.search import search_for_agent, search_for_grading
 
 KEYMARK = "KEYMARK-a4f7"
 NOW = datetime(2026, 11, 25, tzinfo=UTC)
@@ -410,3 +415,109 @@ def test_fetch_can_write_only_for_submissions_in_its_run(database, monkeypatch):
     with pytest.raises(DBAPIError) as error, session("rubrica_fetch", run) as db:
         db.execute(select(WebSnapshot.id))
     assert error.value.orig.sqlstate == "42501"
+
+
+def test_vector_search_separates_blog_scope_and_grading(database, monkeypatch):
+    rows, _, _ = database
+    course, other = rows["courses"]
+
+    def embed(_):
+        return rows["embedding"]
+
+    monkeypatch.setenv("DB_ROLE", "rubrica_mcp")
+    student = SessionContext("student", rows["students"][0], course)
+    with session("rubrica_mcp", student) as db:
+        hits = search_for_agent(db, "course notes", 8, embed=embed)
+        assert {hit.text for hit in hits} == {"Published", "Course blog"}
+        assert len(search_for_agent(db, "course notes", 1, embed=embed)) == 1
+
+    monkeypatch.setenv("DB_ROLE", "rubrica_grading")
+    run = SessionContext("grading_run", course_id=course, run_id=rows["run"])
+    with session("rubrica_grading", run) as db:
+        hits = search_for_grading(db, course, "course notes", 8, embed=embed)
+        assert [(hit.text, hit.trust) for hit in hits] == [("Published", "instructor")]
+        assert search_for_grading(db, other, "course notes", 8, embed=embed) == []
+
+
+def test_material_index_retry_keeps_one_pending_chunk(database, monkeypatch):
+    rows, _, owner = database
+    course = rows["courses"][0]
+    source = b"Local synthetic source"
+    material = uuid4()
+    with owner.begin() as conn:
+        conn.execute(
+            insert(Material.__table__).values(
+                id=material,
+                course_id=course,
+                title="Synthetic retry",
+                source_kind="instructor",
+                uploader_id=rows["instructor"],
+                sha256=sha256(source).hexdigest(),
+            )
+        )
+
+    def embed(_):
+        return rows["embedding"]
+
+    monkeypatch.setenv("DB_ROLE", "rubrica_ingest")
+    args = {
+        "material_id": material,
+        "course_id": course,
+        "source": source,
+        "result": {"text": source.decode(), "has_text_layer": True},
+        "embed": embed,
+    }
+    assert index_material(**args) == 1
+    assert index_material(**args) == 0
+    with pytest.raises(ValueError, match="Material source"):
+        index_material(**(args | {"source": b"different source"}))
+    with owner.connect() as conn:
+        assert conn.scalars(
+            select(MaterialChunk.visibility).where(MaterialChunk.material_id == material)
+        ).all() == ["pending"]
+
+
+def test_ingestion_lease_excludes_other_services_jobs(database, monkeypatch):
+    _, _, owner = database
+    parse_job, grading_job = uuid4(), uuid4()
+    with owner.begin() as conn:
+        for job, kind in ((grading_job, "grading_run"), (parse_job, "parse_material")):
+            conn.execute(
+                insert(Job.__table__).values(
+                    id=job,
+                    kind=kind,
+                    status="queued",
+                    payload={},
+                    run_after=NOW,
+                )
+            )
+
+    monkeypatch.setenv("DB_ROLE", "rubrica_ingest")
+    job_id, kind, _, lease = claim_job()
+    assert kind == "parse_material"
+    assert job_id == parse_job
+    assert claim_job() is None
+    assert finish_job(parse_job, lease, "done")
+    assert not finish_job(parse_job, lease, "failed")
+    with owner.connect() as conn:
+        assert conn.scalar(select(Job.status).where(Job.id == parse_job)) == "done"
+        assert conn.scalar(select(Job.status).where(Job.id == grading_job)) == "queued"
+
+
+def test_ingestion_stores_submission_text_only_for_matching_course_and_hash(database, monkeypatch):
+    rows, _, owner = database
+    course, other = rows["courses"]
+    submission = rows["submissions"][0]
+    statement = text("SELECT public.store_parsed_submission(:id, :digest, :contents)")
+    parameters = {"id": submission, "digest": "test", "contents": "Synthetic parsed text"}
+    monkeypatch.setenv("DB_ROLE", "rubrica_ingest")
+    with session("rubrica_ingest", SessionContext("system", course_id=other)) as db:
+        assert not db.scalar(statement, parameters)
+    with session("rubrica_ingest", SessionContext("system", course_id=course)) as db:
+        assert not db.scalar(statement, parameters | {"digest": "different"})
+        assert db.scalar(statement, parameters)
+    with owner.connect() as conn:
+        extracted = conn.scalar(
+            select(Submission.extracted_text).where(Submission.id == submission)
+        )
+        assert extracted == "Synthetic parsed text"

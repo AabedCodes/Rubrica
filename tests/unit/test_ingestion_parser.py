@@ -1,9 +1,9 @@
-import json
 from pathlib import Path
 from uuid import UUID
 
 from pypdf import PdfWriter
 
+from backend.ingestion.exchange import read_result, stage_input
 from backend.ingestion.parser import parse_file, parse_pending
 
 FIXTURE = Path(__file__).parents[2] / "seed" / "canaries" / "T04.pdf"
@@ -33,14 +33,15 @@ def test_volume_worker_processes_a_job_once(tmp_path):
     inbox.mkdir()
     outbox.mkdir()
     job = UUID(int=1)
-    (inbox / f"{job}.md").write_text("Example markdown", encoding="utf-8")
+    stage_input(inbox, job, "text/markdown", b"Example markdown")
+    assert read_result(outbox, job) is None
     (inbox / "not-a-job.md").write_text("Ignored", encoding="utf-8")
     heartbeat = tmp_path / "heartbeat"
 
     parse_pending(inbox, outbox, heartbeat, 5)
 
     result = outbox / f"{job}.json"
-    assert json.loads(result.read_text(encoding="utf-8")) == {
+    assert read_result(outbox, job) == {
         "text": "Example markdown",
         "pages": 1,
         "has_text_layer": True,

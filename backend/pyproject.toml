@@ -16,6 +16,13 @@ dependencies = [
     "sqlalchemy==2.0.41",
 ]
 
+[project.optional-dependencies]
+embedding = [
+    "safetensors==0.7.0",
+    "torch==2.10.0",
+    "transformers==4.57.6",
+]
+
 [dependency-groups]
 dev = [
     "pytest==9.2.0",
@@ -24,3 +31,11 @@ dev = [
 
 [tool.uv]
 package = false
+
+[[tool.uv.index]]
+name = "torch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "torch-cpu" }
