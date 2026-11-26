@@ -90,7 +90,7 @@ services:
   # ------------------------------------------------------------ 2.5 Fetcher
   fetcher:
     <<: *backend
-    command: ["python", "-m", "backend.common.placeholder", "fetcher"]  # placeholder
+    command: ["python", "-m", "backend.fetcher.service"]
     networks: [internal, web-egress]
     environment:
       <<: *backend-env
@@ -104,6 +104,7 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
       web-proxy: { condition: service_healthy }
+      web-dns: { condition: service_healthy }
 
   # ------------------------------------------------------------ 3 Student chat agent
   chat-agent:
@@ -290,6 +291,14 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+
+  web-dns:
+    <<: *backend
+    command: ["python", "-m", "backend.fetcher.resolver"]
+    networks: [web-egress, public]
+    environment:
+      PORT: "8000"
+    # DNS only. No published ports, database credentials or service keys.
 
   web-proxy:
     <<: *hardened

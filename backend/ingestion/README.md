@@ -27,3 +27,14 @@ words with 30 words of overlap, and the encoder truncates at 512 model tokens.
 A `parse_submission` job uses `submission_id` instead of `material_id`. It
 writes extracted text only when the stored upload hash and course match.
 Submission text stays out of the retrieval index.
+
+
+## Blog indexing jobs
+
+Inserting a blog post or comment enqueues an `index_blog` job in the same
+database transaction. The payload carries only its course and source IDs and
+source kind. The worker reads author and text from the stored source under
+the job's course scope. It stores the chunks separately from course material.
+Deleting a post or comment deletes its corresponding chunks in the same
+transaction. Existing posts are queued by the migration and seeded posts are
+queued on insert.

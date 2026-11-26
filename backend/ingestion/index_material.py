@@ -1,25 +1,14 @@
 """Index parsed course material with its server-owned source metadata."""
 
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Sequence
 from hashlib import sha256
-from math import isfinite
 from uuid import UUID, uuid5
 
 from sqlalchemy.dialects.postgresql import insert
 
 from backend.db import SessionContext, session
 from backend.db.models import Material, MaterialChunk
-
-_WINDOW = 300
-_OVERLAP = 30
-
-
-def _chunks(text: str) -> Iterator[str]:
-    words = text.split()
-    for start in range(0, len(words), _WINDOW - _OVERLAP):
-        yield " ".join(words[start : start + _WINDOW])
-        if start + _WINDOW >= len(words):
-            break
+from backend.ingestion.vectors import embedded_chunks
 
 
 def index_material(
@@ -44,10 +33,7 @@ def index_material(
 
         table = MaterialChunk.__table__
         count = 0
-        for index, chunk in enumerate(_chunks(text)):
-            vector = [float(value) for value in embed(chunk)]
-            if len(vector) != 384 or not all(map(isfinite, vector)) or not any(vector):
-                raise ValueError("Expected a finite nonzero 384-dimensional vector")
+        for index, (chunk, vector) in enumerate(embedded_chunks(text, embed)):
             statement = (
                 insert(table)
                 .inline()

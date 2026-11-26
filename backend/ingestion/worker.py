@@ -1,4 +1,4 @@
-"""Lease material jobs and hand them to the isolated parser."""
+"""Lease ingestion jobs and index material or blog text."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from sqlalchemy import and_, or_, select, text
 from backend.db import SessionContext, session
 from backend.db.models import Job
 from backend.ingestion.exchange import read_result, stage_input
+from backend.ingestion.index_blog import index_blog
 from backend.ingestion.index_material import index_material
 from backend.ingestion.parser import MAX_INPUT_BYTES
 from backend.retrieval.embedding import load_embedding
@@ -33,7 +34,7 @@ def claim_job() -> tuple[UUID, str, dict, datetime] | None:
         job = db.scalar(
             select(Job)
             .where(
-                Job.kind.in_(("parse_material", "parse_submission")),
+                Job.kind.in_(("parse_material", "parse_submission", "index_blog")),
                 or_(
                     and_(Job.status == "queued", Job.run_after <= now),
                     and_(Job.status == "parsing", Job.locked_at < expired),
@@ -87,8 +88,16 @@ def _store_submission(submission_id: UUID, course_id: UUID, source: bytes, resul
 
 
 def process_job(job_id: UUID, kind: str, payload: dict, embed, heartbeat: Path) -> None:
-    upload_name = str(UUID(payload["upload_id"]))
     course_id = UUID(payload["course_id"])
+    if kind == "index_blog":
+        index_blog(
+            origin=payload["origin"],
+            origin_id=UUID(payload["origin_id"]),
+            course_id=course_id,
+            embed=embed,
+        )
+        return
+    upload_name = str(UUID(payload["upload_id"]))
     upload = _UPLOADS / upload_name
     if upload.is_symlink():
         raise ValueError("Invalid upload reference")
