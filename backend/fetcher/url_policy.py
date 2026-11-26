@@ -1,6 +1,7 @@
 """Preflight validation for one citation URL or redirect hop (C06)."""
 
 import socket
+from collections.abc import Callable
 from ipaddress import IPv6Address, IPv6Network, ip_address
 from urllib.parse import urlsplit
 
@@ -11,7 +12,14 @@ class BlockedUrl(ValueError):
     """A fixed reason safe to record without echoing the URL."""
 
 
-def check_url(url: str) -> tuple[str, int, tuple[str, ...]]:
+def _resolve_locally(host: str, port: int) -> tuple[str, ...]:
+    records = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
+    return tuple(record[4][0] for record in records)
+
+
+def check_url(
+    url: str, *, resolve: Callable[[str, int], tuple[str, ...]] = _resolve_locally
+) -> tuple[str, int, tuple[str, ...]]:
     if not url or any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in url):
         raise BlockedUrl("invalid_url")
 
@@ -39,7 +47,7 @@ def check_url(url: str) -> tuple[str, int, tuple[str, ...]]:
 
     try:
         host = host.encode("idna").decode("ascii")
-        records = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
+        records = resolve(host, port)
     except (UnicodeError, OSError) as exc:
         raise BlockedUrl("dns_failure") from exc
 
@@ -48,7 +56,7 @@ def check_url(url: str) -> tuple[str, int, tuple[str, ...]]:
 
     checked = set()
     for record in records:
-        value = ip_address(record[4][0])
+        value = ip_address(record)
         if (
             not value.is_global
             or value.is_multicast

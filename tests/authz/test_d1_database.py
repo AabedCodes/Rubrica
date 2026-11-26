@@ -8,11 +8,11 @@ import os
 from datetime import UTC, datetime
 from hashlib import sha256
 from importlib import import_module
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
-from sqlalchemy import URL, create_engine, func, insert, inspect, select, text, update
+from sqlalchemy import URL, create_engine, delete, func, insert, inspect, select, text, update
 from sqlalchemy.exc import DBAPIError
 
 from backend.db import SessionContext, session
@@ -22,6 +22,7 @@ from backend.db.models import (
     Assignment,
     AuditEvent,
     BlogChunk,
+    BlogComment,
     BlogPost,
     Course,
     Enrollment,
@@ -36,6 +37,9 @@ from backend.db.models import (
     User,
     WebSnapshot,
 )
+from backend.fetcher import service as fetcher
+from backend.fetcher.transport import FetchResult
+from backend.ingestion.index_blog import index_blog
 from backend.ingestion.index_material import index_material
 from backend.ingestion.worker import claim_job, finish_job
 from backend.retrieval.search import search_for_agent, search_for_grading
@@ -481,6 +485,7 @@ def test_ingestion_lease_excludes_other_services_jobs(database, monkeypatch):
     _, _, owner = database
     parse_job, grading_job = uuid4(), uuid4()
     with owner.begin() as conn:
+        conn.execute(update(Job.__table__).where(Job.kind == "index_blog").values(status="done"))
         for job, kind in ((grading_job, "grading_run"), (parse_job, "parse_material")):
             conn.execute(
                 insert(Job.__table__).values(
@@ -521,3 +526,80 @@ def test_ingestion_stores_submission_text_only_for_matching_course_and_hash(data
             select(Submission.extracted_text).where(Submission.id == submission)
         )
         assert extracted == "Synthetic parsed text"
+
+
+def test_citation_endpoint_checks_scope_before_transport_and_persists_result(database, monkeypatch):
+    rows, _, owner = database
+    course = rows["courses"][0]
+    run = SessionContext("grading_run", course_id=course, run_id=rows["run"])
+    monkeypatch.setenv("DB_ROLE", "rubrica_fetch")
+    calls = []
+
+    def blocked(url):
+        calls.append(url)
+        return FetchResult("blocked", reason="non_public_address")
+
+    monkeypatch.setattr(fetcher, "fetch_citation", blocked)
+    citation = "https://example.edu/reading"
+    with pytest.raises(PermissionError):
+        fetcher.record_citation(citation, rows["submissions"][2], run)
+    assert not calls
+    result = fetcher.record_citation(citation, rows["submissions"][0], run)
+    assert result["status"] == "blocked"
+    snapshot_id = UUID(result["snapshot_id"])
+    with owner.connect() as conn:
+        saved = conn.execute(
+            select(WebSnapshot.url, WebSnapshot.status, WebSnapshot.text).where(
+                WebSnapshot.id == snapshot_id
+            )
+        ).one()
+    assert saved == (citation, "blocked", None)
+
+
+def test_blog_index_uses_stored_course_and_trust_and_cleans_deleted_sources(database, monkeypatch):
+    rows, _, owner = database
+    course, other = rows["courses"]
+    post, comment = uuid4(), uuid4()
+    with owner.begin() as conn:
+        conn.execute(
+            insert(BlogPost.__table__).values(
+                id=post,
+                course_id=course,
+                author_id=rows["instructor"],
+                body="Synthetic instructor note.",
+                sha256="test",
+            )
+        )
+        conn.execute(
+            insert(BlogComment.__table__).values(
+                id=comment,
+                post_id=post,
+                author_id=rows["students"][0],
+                body="Synthetic student response.",
+                sha256="test",
+            )
+        )
+
+    with owner.connect() as conn:
+        queued = conn.scalars(select(Job.payload).where(Job.kind == "index_blog")).all()
+    assert {"course_id": str(course), "origin": "post", "origin_id": str(post)} in queued
+    assert {"course_id": str(course), "origin": "comment", "origin_id": str(comment)} in queued
+
+    def embed(_):
+        return rows["embedding"]
+
+    monkeypatch.setenv("DB_ROLE", "rubrica_ingest")
+    assert index_blog(origin="post", origin_id=post, course_id=other, embed=embed) == 0
+    assert index_blog(origin="post", origin_id=post, course_id=course, embed=embed) == 1
+    assert index_blog(origin="comment", origin_id=comment, course_id=course, embed=embed) == 1
+    assert index_blog(origin="comment", origin_id=comment, course_id=course, embed=embed) == 0
+
+    origins = select(BlogChunk.origin, BlogChunk.trust).where(
+        BlogChunk.origin_id.in_([post, comment]),
+    )
+    with owner.begin() as conn:
+        assert set(conn.execute(origins)) == {("post", "instructor"), ("comment", "untrusted")}
+        conn.execute(delete(BlogComment.__table__).where(BlogComment.id == comment))
+        assert conn.execute(origins).all() == [("post", "instructor")]
+        conn.execute(delete(BlogPost.__table__).where(BlogPost.id == post))
+        assert conn.execute(origins).all() == []
