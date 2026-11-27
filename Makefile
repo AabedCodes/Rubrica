@@ -2,7 +2,11 @@
 COMPOSE := docker compose -f deploy/docker-compose.yml
 UV      := uv run --project backend --frozen
 
-.PHONY: help secrets up down logs ps seed test lint verify verify-live sbom scan pins
+.PHONY: help secrets up down logs ps seed test lint verify verify-live sbom scan pins frontend-lint frontend-test
+
+# Front end (A1). Runs only once `npm ci` has been run in frontend/, so members
+# without Node can still use `make lint` and `make test` for the Python side.
+FRONTEND_READY := $(wildcard frontend/node_modules/.package-lock.json)
 
 help:
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -28,12 +32,26 @@ CANARIES ?= 0
 seed: ## Load synthetic demo data; set CANARIES=1 for security fixtures
 	$(COMPOSE) run --rm -T -e CANARIES=$(CANARIES) migrate python -m seed.generate
 
-test: ## Unit, authz and deterministic verification tests
+test: frontend-test ## Unit, authz and deterministic verification tests (+ front end)
 	LLM_PROVIDER=fake $(UV) pytest tests
 
-lint: ## Ruff over Python code
+lint: frontend-lint ## Ruff over Python code (+ ESLint and tsc for the front end)
 	$(UV) ruff check backend scripts seed tests
 	$(UV) ruff format --check backend scripts seed tests
+
+frontend-lint: ## ESLint and type check for frontend/ (needs `npm ci` in frontend/)
+ifneq ($(FRONTEND_READY),)
+	cd frontend && npm run -s lint && npm run -s typecheck
+else
+	@echo "frontend-lint: skipped (run 'npm ci' in frontend/ first)"
+endif
+
+frontend-test: ## Vitest for frontend/ (needs `npm ci` in frontend/)
+ifneq ($(FRONTEND_READY),)
+	cd frontend && npm test -s
+else
+	@echo "frontend-test: skipped (run 'npm ci' in frontend/ first)"
+endif
 
 pins: ## Check that actions, images and lockfiles are pinned
 	python3 scripts/check_pins.py . || python scripts/check_pins.py .
