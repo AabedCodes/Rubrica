@@ -24,6 +24,8 @@ Add a line for your entry here, newest first.
 
 | Date | Task | Entry | Author |
 |---|---|---|---|
+| 2026-11-28 | B4 | [RLS suite and T-23](2026-11-28-B4-rls-suite.md) | B (by E) |
+| 2026-11-28 | B1 | [Verification framework, report, test guide](2026-11-28-B1-verification-framework.md) | B (by E) |
 | 2026-11-27 | A2 | [Walking-skeleton screens](2026-11-27-A2-walking-skeleton-screens.md) | A |
 | 2026-11-27 | A3 | [SafeMarkdown and the HTML-sink lint rule](2026-11-27-A3-safe-markdown.md) | A |
 | 2026-11-27 | A1 | [React shell and npm hardening](2026-11-27-A1-react-shell.md) | A |
