@@ -29,6 +29,8 @@ export interface ProposedGradeRow {
 export interface StartRunResponse {
   run_id: string;
   submissions: number;
+  /** A7, ASSUMED: submissions sent to the manual queue because agents are paused (C30). */
+  sent_to_manual_queue?: number;
 }
 
 /**

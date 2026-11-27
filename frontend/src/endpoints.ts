@@ -13,6 +13,16 @@ import type {
   PutRubricRequest,
 } from "./types/content";
 import type { ApproveRequest, ApproveResponse, ExtractedText, ProposedGradeDetail, ProposedGradeRow, StartRunResponse } from "./types/grading";
+import type {
+  AppealRow,
+  AuditResponse,
+  CourseControls,
+  DecideRequest,
+  Draft,
+  GradeChangeProposal,
+  ManualQueueItem,
+  ResolveRequest,
+} from "./types/oversight";
 
 const enc = encodeURIComponent;
 
@@ -45,5 +55,30 @@ export function gradingRoutes(api: ApiClient) {
     extractedText: (submissionId: string) => api.get<ExtractedText>(`/submissions/${enc(submissionId)}/extracted-text`),
     /** Re-auth (C28). */
     approve: (body: ApproveRequest) => api.post<ApproveResponse>("/proposed-grades/approve", body),
+  };
+}
+
+/** A7: appeals, proposals, drafts, manual queue, audit and course controls. */
+export function oversightRoutes(api: ApiClient) {
+  return {
+    appeals: (courseId: string) => api.get<AppealRow[]>(`/courses/${enc(courseId)}/appeals`),
+    proposal: (id: string) => api.get<GradeChangeProposal>(`/grade-change-proposals/${enc(id)}`),
+    /** Re-auth (C28). */
+    decide: (id: string, body: DecideRequest) => api.post<GradeChangeProposal>(`/grade-change-proposals/${enc(id)}/decide`, body),
+    /** ASSUMED route. */
+    drafts: (courseId: string) => api.get<Draft[]>(`/courses/${enc(courseId)}/drafts`),
+    draft: (id: string) => api.get<Draft>(`/drafts/${enc(id)}`),
+    /** Re-auth for answer keys (§10). */
+    acceptDraft: (id: string) => api.post<Draft>(`/drafts/${enc(id)}/accept`),
+    /** ASSUMED route. */
+    rejectDraft: (id: string) => api.post<Draft>(`/drafts/${enc(id)}/reject`),
+    manualQueue: (courseId: string) => api.get<ManualQueueItem[]>(`/courses/${enc(courseId)}/manual-queue`),
+    resolve: (id: string, body: ResolveRequest) => api.post<ManualQueueItem>(`/manual-queue/${enc(id)}/resolve`, body),
+    audit: (courseId: string) => api.get<AuditResponse>(`/courses/${enc(courseId)}/audit`),
+    /** ASSUMED route. */
+    controls: (courseId: string) => api.get<CourseControls>(`/courses/${enc(courseId)}/controls`),
+    /** Re-auth (C28, C30). */
+    pause: (courseId: string, reason: string) => api.post<CourseControls>(`/courses/${enc(courseId)}/pause`, { reason }),
+    resume: (courseId: string) => api.post<CourseControls>(`/courses/${enc(courseId)}/resume`),
   };
 }

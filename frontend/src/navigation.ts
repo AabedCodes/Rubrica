@@ -18,6 +18,8 @@ export const COURSE_SCREENS: readonly CourseScreen[] = [
   { path: "assignments", label: "Assignments", roles: ["student", "instructor"], task: "A2" },
   { path: "grades", label: "My grades", roles: ["student"], task: "A2" },
   { path: "materials", label: "Materials", roles: ["instructor"], task: "A6" },
+  { path: "appeals", label: "Appeals", roles: ["instructor"], task: "A7" },
+  { path: "drafts", label: "AI drafts", roles: ["instructor"], task: "A7" },
   { path: "manual-queue", label: "Manual queue", roles: ["instructor"], task: "A7" },
   { path: "audit", label: "Audit log", roles: ["instructor"], task: "A7" },
   { path: "settings", label: "Course settings", roles: ["instructor"], task: "A7" },
