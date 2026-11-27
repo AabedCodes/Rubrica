@@ -24,6 +24,7 @@ Add a line for your entry here, newest first.
 
 | Date | Task | Entry | Author |
 |---|---|---|---|
+| 2026-11-27 | A10 | [System card and disclosure statement (draft)](2026-11-27-A10-system-card.md) | A |
 | 2026-11-27 | A2 | [Walking-skeleton screens](2026-11-27-A2-walking-skeleton-screens.md) | A |
 | 2026-11-27 | A3 | [SafeMarkdown and the HTML-sink lint rule](2026-11-27-A3-safe-markdown.md) | A |
 | 2026-11-27 | A1 | [React shell and npm hardening](2026-11-27-A1-react-shell.md) | A |
