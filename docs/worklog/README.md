@@ -24,6 +24,7 @@ Add a line for your entry here, newest first.
 
 | Date | Task | Entry | Author |
 |---|---|---|---|
+| 2026-11-27 | A4 | [Blind hand-grading sample for BO2 (prepared)](2026-11-27-A4-blind-sample.md) | A |
 | 2026-11-27 | A2 | [Walking-skeleton screens](2026-11-27-A2-walking-skeleton-screens.md) | A |
 | 2026-11-27 | A3 | [SafeMarkdown and the HTML-sink lint rule](2026-11-27-A3-safe-markdown.md) | A |
 | 2026-11-27 | A1 | [React shell and npm hardening](2026-11-27-A1-react-shell.md) | A |
