@@ -1,61 +1,52 @@
 /**
- * MOCK API: in-memory stand-in for the §10 routes until E4 (identity) lands.
+ * MOCK API: in-memory stand-in for the §10 routes until the real ones land.
  *
  * Loaded only when import.meta.env.MODE === "mock" (`npm run dev:mock`) and by
  * tests. build-guard.ts refuses to build a production bundle in mock mode.
  *
- * Every mocked route is tagged `MOCK(<task>)`. To find what is left to switch
- * to the real API:  grep -rn "MOCK(" frontend/src
+ * Every mocked route is tagged `MOCK(<task>)` with the task that replaces it.
+ * To find what is left to switch to the real API:  grep -rn "MOCK(" frontend/src
  *
  * Synthetic data only (CLAUDE.md). The mock password is not a real secret; it
  * carries the CANARY-T19 marker so secret scanners can recognise it as fake.
  */
 import type { Course, LoginRequest, Me, Role, TotpRequest } from "../apiTypes";
 import type { Transport } from "../api";
+import { contentHandler } from "./content";
+import { gradingHandler } from "./grading";
+import { error, json, noContent, type MockContext, type MockHandler, type MockRequest } from "./http";
+import { createWorld, ENROLLMENTS, MOCK_COURSES, MOCK_PASSWORD, MOCK_TOTP_CODE, MOCK_USERS, type MockUser } from "./state";
 
-export const MOCK_PASSWORD = "mock-only-CANARY-T19";
-export const MOCK_TOTP_CODE = "123456";
+export { MOCK_COURSES, MOCK_PASSWORD, MOCK_TOTP_CODE, MOCK_USERS, SEED_IDS } from "./state";
 
-interface MockUser extends Me {
-  email: string;
+/** Re-auth window from 01-interfaces.md §4.1 (C28): 5 minutes. */
+const REAUTH_WINDOW_MS = 5 * 60 * 1000;
+
+export interface MockOptions {
+  /** Treat the sign-in TOTP as stale, so the first re-auth-protected action opens the modal (tests). */
+  staleReauth?: boolean;
+  now?: () => number;
 }
 
-export const MOCK_USERS: readonly MockUser[] = [
-  { id: "00000000-0000-4000-8000-000000000001", email: "student1@example.test", display_name: "Student One", role: "student" },
-  { id: "00000000-0000-4000-8000-000000000002", email: "instructor1@example.test", display_name: "Instructor One", role: "instructor" },
-];
-
-export const MOCK_COURSES: readonly Omit<Course, "role">[] = [
-  { id: "00000000-0000-4000-8000-0000000000c1", code: "SEC-101", title: "Synthetic Course: AI Security" },
-  { id: "00000000-0000-4000-8000-0000000000c2", code: "SEC-202", title: "Synthetic Course: Secure Systems" },
-];
-
-const ENROLLMENTS: Record<string, readonly string[]> = {
-  [MOCK_USERS[0]!.id]: [MOCK_COURSES[0]!.id, MOCK_COURSES[1]!.id],
-  [MOCK_USERS[1]!.id]: [MOCK_COURSES[0]!.id],
-};
+const HANDLERS: readonly MockHandler[] = [contentHandler, gradingHandler];
 
 type Session = { state: "none" } | { state: "pending_totp"; user: MockUser } | { state: "active"; user: MockUser };
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-function error(status: number, code: string): Response {
-  return json(status, { error: code });
-}
-
-async function readBody<T>(init: RequestInit): Promise<Partial<T>> {
-  if (typeof init.body !== "string") return {};
+async function readBody(init: RequestInit): Promise<unknown> {
+  if (init.body instanceof FormData) return init.body;
+  if (typeof init.body !== "string") return undefined;
   try {
-    return JSON.parse(init.body) as Partial<T>;
+    return JSON.parse(init.body) as unknown;
   } catch {
-    return {};
+    return undefined;
   }
 }
 
-export function createMockTransport(): Transport {
+export function createMockTransport(options: MockOptions = {}): Transport {
+  const now = options.now ?? (() => Date.now());
+  const world = createWorld(now());
   let session: Session = { state: "none" };
+  let reauthAt: number | null = null;
   let csrfToken = "";
   let counter = 0;
 
@@ -63,6 +54,7 @@ export function createMockTransport(): Transport {
     const method = (init.method ?? "GET").toUpperCase();
     const path = new URL(url, "http://mock.invalid").pathname;
     const headers = new Headers(init.headers);
+    const body = await readBody(init);
 
     // Mirror §4.1: state-changing calls need the CSRF token from GET /auth/csrf.
     if (method !== "GET" && (csrfToken === "" || headers.get("X-CSRF-Token") !== csrfToken)) {
@@ -78,9 +70,9 @@ export function createMockTransport(): Transport {
 
     // MOCK(E4): §10 POST /auth/login (instructors continue with TOTP, C27)
     if (method === "POST" && path === "/api/auth/login") {
-      const body = await readBody<LoginRequest>(init);
-      const user = MOCK_USERS.find((u) => u.email === body.email);
-      if (!user || body.password !== MOCK_PASSWORD) return error(401, "invalid_credentials");
+      const b = (body ?? {}) as Partial<LoginRequest>;
+      const user = MOCK_USERS.find((u) => u.email === b.email);
+      if (!user || b.password !== MOCK_PASSWORD) return error(401, "invalid_credentials");
       if (user.role === "instructor") {
         session = { state: "pending_totp", user };
         return json(200, { status: "totp_required" });
@@ -91,26 +83,29 @@ export function createMockTransport(): Transport {
 
     // MOCK(E4): §10 POST /auth/totp
     if (method === "POST" && path === "/api/auth/totp") {
-      const body = await readBody<TotpRequest>(init);
+      const b = (body ?? {}) as Partial<TotpRequest>;
       if (session.state !== "pending_totp") return error(401, "unauthenticated");
-      if (body.code !== MOCK_TOTP_CODE) return error(401, "totp_invalid");
+      if (b.code !== MOCK_TOTP_CODE) return error(401, "totp_invalid");
       session = { state: "active", user: session.user };
-      return new Response(null, { status: 204 });
+      reauthAt = options.staleReauth ? null : now();
+      return noContent();
     }
 
     // MOCK(E4): §10 POST /auth/reauth (C28)
     if (method === "POST" && path === "/api/auth/reauth") {
-      const body = await readBody<TotpRequest>(init);
+      const b = (body ?? {}) as Partial<TotpRequest>;
       if (session.state !== "active") return error(401, "unauthenticated");
-      if (body.code !== MOCK_TOTP_CODE) return error(401, "totp_invalid");
-      return new Response(null, { status: 204 });
+      if (b.code !== MOCK_TOTP_CODE) return error(401, "totp_invalid");
+      reauthAt = now();
+      return noContent();
     }
 
     // MOCK(E4): §10 POST /auth/logout
     if (method === "POST" && path === "/api/auth/logout") {
       session = { state: "none" };
+      reauthAt = null;
       csrfToken = "";
-      return new Response(null, { status: 204 });
+      return noContent();
     }
 
     if (session.state !== "active") return error(401, "unauthenticated");
@@ -130,6 +125,18 @@ export function createMockTransport(): Transport {
       return json(200, courses);
     }
 
+    const req: MockRequest = { method, path, body };
+    const ctx: MockContext = {
+      world,
+      user,
+      now,
+      reauthFresh: () => reauthAt !== null && now() - reauthAt <= REAUTH_WINDOW_MS,
+      enrolledIn: (courseId) => (ENROLLMENTS[user.id] ?? []).includes(courseId),
+    };
+    for (const handler of HANDLERS) {
+      const response = handler(req, ctx);
+      if (response) return response;
+    }
     return error(404, "not_found");
   };
 }

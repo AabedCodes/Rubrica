@@ -7,8 +7,19 @@ import { ReauthProvider } from "./auth/ReauthProvider";
 import { Layout } from "./components/Layout";
 import { COURSE_SCREENS } from "./navigation";
 import { CourseOverviewPage, HomePage, NotAvailablePage, NotFoundPage, PlaceholderPage } from "./pages/CoursePages";
+import { AssignmentListPage } from "./pages/assignments/AssignmentListPage";
+import { AssignmentPage } from "./pages/assignments/AssignmentPage";
+import { MyGradesPage } from "./pages/assignments/MyGradesPage";
+import { NewAssignmentPage } from "./pages/assignments/NewAssignmentPage";
+import { ReviewListPage } from "./pages/assignments/ReviewListPage";
 import { LoginPage } from "./pages/LoginPage";
 import { TotpPage } from "./pages/TotpPage";
+
+/** Screens that are built; the rest show a placeholder naming their task. */
+const SCREEN_ELEMENTS: Partial<Record<string, ReactNode>> = {
+  assignments: <AssignmentListPage />,
+  grades: <MyGradesPage />,
+};
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { state } = useAuth();
@@ -43,13 +54,35 @@ export function AppRoutes({ mockMode = false }: { mockMode?: boolean }) {
           <Route
             key={screen.path}
             path={`courses/:courseId/${screen.path}`}
-            element={
-              <RequireRole roles={screen.roles}>
-                <PlaceholderPage screen={screen} />
-              </RequireRole>
-            }
+            element={<RequireRole roles={screen.roles}>{SCREEN_ELEMENTS[screen.path] ?? <PlaceholderPage screen={screen} />}</RequireRole>}
           />
         ))}
+        {/* A2: assignment pages under the Assignments screen. */}
+        <Route
+          path="courses/:courseId/assignments/new"
+          element={
+            <RequireRole roles={["instructor"]}>
+              <NewAssignmentPage />
+            </RequireRole>
+          }
+        />
+        <Route path="courses/:courseId/assignments/:assignmentId" element={<AssignmentPage />} />
+        <Route
+          path="courses/:courseId/assignments/:assignmentId/review"
+          element={
+            <RequireRole roles={["instructor"]}>
+              <ReviewListPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="courses/:courseId/assignments/:assignmentId/review/:proposedGradeId"
+          element={
+            <RequireRole roles={["instructor"]}>
+              <PlaceholderPage screen={{ path: "review", label: "Review a proposed grade", roles: ["instructor"], task: "A5" }} />
+            </RequireRole>
+          }
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

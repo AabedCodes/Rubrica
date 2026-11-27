@@ -27,6 +27,9 @@ Synthetic sign-ins for mock mode (fake values; the password carries the `CANARY-
 |---|---|---|
 | `student1@example.test` | `mock-only-CANARY-T19` | none |
 | `instructor1@example.test` | `mock-only-CANARY-T19` | `123456` |
+| `student2@example.test` … `student4@example.test` | `mock-only-CANARY-T19` | none |
+
+The mock world (`src/mocks/state.ts`) has one published assignment with three seeded submissions (one carries the demo canary `CANARY-T04-7f3a`) and one draft. State lives in memory and resets on reload.
 
 Request and response shapes that `01-interfaces.md` §10 doesn't define yet are in `src/apiTypes.ts`, each marked `ASSUMED`.
 
