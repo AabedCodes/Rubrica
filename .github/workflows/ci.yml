@@ -66,6 +66,30 @@ jobs:
       - name: Actions, images and FROM lines pinned; lockfiles present
         run: python3 scripts/check_pins.py .
 
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Install (lockfile only, install scripts off; .npmrc also sets ignore-scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Lint (includes the C07 HTML-sink rule)
+        run: npm run lint
+      - name: Unit and component tests
+        run: npm test
+      - name: Typecheck and build
+        run: npm run build
+      - name: npm audit (fails on High or Critical, C14)
+        run: npm audit --audit-level=high
+
   compose-smoke:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

@@ -3,7 +3,7 @@
 Copy everything inside the box into Claude Code (or another assistant), after replacing `<LETTER>` with your role letter (A, B, C or D). Start the assistant **from the folder where you want the repo to live**. Once the repo is cloned, restart it from **inside** the repo folder so `CLAUDE.md` and `.claude/settings.json` load.
 
 ````text
-I'm Person <LETTER> on a 5-person university team building "Rubrica", an agent-assisted grading system for the AI Security capstone. The repo is https://github.com/omaaryouussef/Rubrica (private; I've been invited as a collaborator). Person E (@AabedCodes) has already built the platform foundations. Help me get set up and start my tasks. Don't push, open PRs or comment on GitHub without asking me first.
+I'm Person <LETTER> on a 5-person university team building "Rubrica", an agent-assisted grading system for the AI Security capstone. The repo is https://github.com/AabedCodes/Rubrica (private; I've been invited as a collaborator). Person E (@AabedCodes) has already built the platform foundations. Help me get set up and start my tasks. Don't push, open PRs or comment on GitHub without asking me first.
 
 1. CHECK AND INSTALL TOOLS. Check what's installed before installing anything, and ask me before each install. Needed:
    - git
@@ -15,7 +15,7 @@ I'm Person <LETTER> on a 5-person university team building "Rubrica", an agent-a
    On Windows, Docker needs WSL2. After the installs, open a new terminal so PATH updates.
 
 2. GET THE REPO. Confirm I've accepted the GitHub invitation. Then:
-   - `git clone https://github.com/omaaryouussef/Rubrica.git`
+   - `git clone https://github.com/AabedCodes/Rubrica.git`
    - tell me to restart you from inside the `Rubrica` folder, so the project's `CLAUDE.md` and `.claude/settings.json` rules load (this matters: they deny reading secrets and pushing);
    - `git pull` on `main`.
 
