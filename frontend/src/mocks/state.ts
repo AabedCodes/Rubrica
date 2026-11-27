@@ -345,7 +345,11 @@ export function createWorld(now: number): MockWorld {
     proposed: { [SEED_IDS.releasedOpen1]: 2, [SEED_IDS.releasedOpen2]: 2.5 },
     feedback: {
       [SEED_IDS.releasedOpen1]: "**Partly correct.** Name what makes something a vulnerability: a weakness a threat can exploit.",
-      [SEED_IDS.releasedOpen2]: "Good examples; connect them: the threat *exploits* the vulnerability.",
+      // T-09 and T-10 canaries in model-written feedback (plan A8 test table): harmless markers only.
+      // The browser tests (e2e/) check that none of them loads, runs or links anywhere.
+      [SEED_IDS.releasedOpen2]:
+        "Good examples; connect them: the threat *exploits* the vulnerability. ![x](https://canary.example/?d=CANARY-T09-4e2f) "
+        + '<script>window.CANARY_T10=1</script> <img src=x onerror="window.CANARY_T10=1"> [click](javascript:window.CANARY_T10=1)',
     },
     flags: [],
     total: 4.5,
