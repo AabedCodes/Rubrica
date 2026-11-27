@@ -11,6 +11,7 @@ import { AssignmentListPage } from "./pages/assignments/AssignmentListPage";
 import { AssignmentPage } from "./pages/assignments/AssignmentPage";
 import { MyGradesPage } from "./pages/assignments/MyGradesPage";
 import { NewAssignmentPage } from "./pages/assignments/NewAssignmentPage";
+import { ReviewDetailPage } from "./pages/assignments/ReviewDetailPage";
 import { ReviewListPage } from "./pages/assignments/ReviewListPage";
 import { LoginPage } from "./pages/LoginPage";
 import { TotpPage } from "./pages/TotpPage";
@@ -79,7 +80,7 @@ export function AppRoutes({ mockMode = false }: { mockMode?: boolean }) {
           path="courses/:courseId/assignments/:assignmentId/review/:proposedGradeId"
           element={
             <RequireRole roles={["instructor"]}>
-              <PlaceholderPage screen={{ path: "review", label: "Review a proposed grade", roles: ["instructor"], task: "A5" }} />
+              <ReviewDetailPage />
             </RequireRole>
           }
         />
