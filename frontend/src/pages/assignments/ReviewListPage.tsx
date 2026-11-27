@@ -71,6 +71,9 @@ export function ReviewListPage() {
           onClick={() =>
             run(async () => {
               const r = await gradingRoutes(api).startRun(assignmentId);
+              if (r.sent_to_manual_queue) {
+                return `AI agents are paused: ${r.sent_to_manual_queue} submission${r.sent_to_manual_queue === 1 ? "" : "s"} sent to the manual queue.`;
+              }
               return `Grading run started for ${r.submissions} submission${r.submissions === 1 ? "" : "s"}.`;
             })
           }

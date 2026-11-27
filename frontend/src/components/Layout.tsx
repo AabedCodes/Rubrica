@@ -1,6 +1,7 @@
 import { matchPath, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthContext";
 import { screensFor } from "../navigation";
+import { ControlsProvider, PauseBanner } from "./CourseControls";
 import { CourseSwitcher } from "./CourseSwitcher";
 
 export function Layout({ mockMode }: { mockMode: boolean }) {
@@ -56,7 +57,15 @@ export function Layout({ mockMode }: { mockMode: boolean }) {
           </nav>
         )}
         <main>
-          <Outlet />
+          {courseId ? (
+            // key: fresh pause state per course (C30 banner on every course page)
+            <ControlsProvider key={courseId} courseId={courseId}>
+              <PauseBanner role={me.role} />
+              <Outlet />
+            </ControlsProvider>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>

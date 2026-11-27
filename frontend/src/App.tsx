@@ -14,13 +14,31 @@ import { NewAssignmentPage } from "./pages/assignments/NewAssignmentPage";
 import { ReviewDetailPage } from "./pages/assignments/ReviewDetailPage";
 import { ReviewListPage } from "./pages/assignments/ReviewListPage";
 import { LoginPage } from "./pages/LoginPage";
+import { AppealsPage } from "./pages/oversight/AppealsPage";
+import { AuditPage } from "./pages/oversight/AuditPage";
+import { CourseSettingsPage } from "./pages/oversight/CourseSettingsPage";
+import { DraftConfirmPage, DraftsPage } from "./pages/oversight/DraftPages";
+import { ManualItemPage, ManualQueuePage } from "./pages/oversight/ManualQueuePages";
+import { ProposalConfirmPage } from "./pages/oversight/ProposalConfirmPage";
 import { TotpPage } from "./pages/TotpPage";
 
 /** Screens that are built; the rest show a placeholder naming their task. */
 const SCREEN_ELEMENTS: Partial<Record<string, ReactNode>> = {
   assignments: <AssignmentListPage />,
   grades: <MyGradesPage />,
+  appeals: <AppealsPage />,
+  drafts: <DraftsPage />,
+  "manual-queue": <ManualQueuePage />,
+  audit: <AuditPage />,
+  settings: <CourseSettingsPage />,
 };
+
+/** A7 detail screens (instructor only). */
+const INSTRUCTOR_DETAIL_ROUTES: [string, ReactNode][] = [
+  ["courses/:courseId/proposals/:proposalId", <ProposalConfirmPage />],
+  ["courses/:courseId/drafts/:draftId", <DraftConfirmPage />],
+  ["courses/:courseId/manual-queue/:queueId", <ManualItemPage />],
+];
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { state } = useAuth();
@@ -84,6 +102,9 @@ export function AppRoutes({ mockMode = false }: { mockMode?: boolean }) {
             </RequireRole>
           }
         />
+        {INSTRUCTOR_DETAIL_ROUTES.map(([path, element]) => (
+          <Route key={path} path={path} element={<RequireRole roles={["instructor"]}>{element}</RequireRole>} />
+        ))}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

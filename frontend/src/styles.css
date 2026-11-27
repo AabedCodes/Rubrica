@@ -140,3 +140,17 @@ textarea { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--border
 .ai-box { border-left: 3px solid var(--border); padding-left: 0.75rem; margin: 0.5rem 0; }
 .quotes { padding-left: 1rem; }
 .criterion-review h3 { font-size: 1rem; }
+
+/* A7: confirmation screens, audit view, pause banner. */
+.two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; margin: 1rem 0; }
+@media (max-width: 800px) { .two-col { grid-template-columns: minmax(0, 1fr); } }
+.box { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; background: var(--surface); }
+.box-student { border-left: 4px solid #8a6d00; }
+.box-ai { border-left: 4px solid var(--accent); }
+.effect { background: var(--bg); border: 1px dashed var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; font-weight: 600; }
+.banner-paused { background: #ffe3e3; border-bottom: 1px solid var(--danger); margin: -1.5rem -1.5rem 1rem; padding: 0.6rem 1.5rem; }
+.banner-alert { background: #ffe3e3; border: 1px solid var(--danger); border-radius: 6px; margin-bottom: 0.5rem; }
+.chain-ok { color: #1a7f37; font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+.filters label { margin-bottom: 0; }
+.row-denied { background: #fff0f0; }

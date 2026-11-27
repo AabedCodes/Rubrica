@@ -30,7 +30,9 @@ describe("mock content and grading routes: access rules", () => {
   it("hides draft assignments from students, as not found", async () => {
     const { content } = await as("student1@example.test");
     const list = await content.listAssignments(SEED_IDS.courseWithAssignments);
-    expect(list.map((a) => a.status)).toEqual(["published"]);
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.every((a) => a.status === "published")).toBe(true);
+    expect(list.map((a) => a.id)).not.toContain(SEED_IDS.draftAssignment);
     await expect(content.getAssignment(SEED_IDS.draftAssignment)).rejects.toMatchObject({ status: 404 });
   });
 

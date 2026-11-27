@@ -85,7 +85,9 @@ describe("A2 end to end: submit, grade, approve, release", () => {
     // Instructor runs grading and reviews.
     user = await signIn("instructor1@example.test");
     await user.click(await screen.findByRole("link", { name: "Assignments" }));
-    await user.click(await screen.findByRole("link", { name: "Review grades" }));
+    // Two published assignments now (A7 seeds a graded Assignment 0); review Assignment 1.
+    const a1Row = (await screen.findByRole("link", { name: "Assignment 1: Threat modelling basics" })).closest("tr")!;
+    await user.click(within(a1Row).getByRole("link", { name: "Review grades" }));
     await user.click(await screen.findByRole("button", { name: "Start grading run" }));
     expect(await screen.findByText(/Grading run started for 4 submissions/)).toBeTruthy();
 
@@ -115,7 +117,7 @@ describe("A2 end to end: submit, grade, approve, release", () => {
   it("shows a student nothing about grades that are not released", async () => {
     renderApp(`/courses/${COURSE}/grades`);
     await signIn("student1@example.test");
-    expect(await screen.findByText("Not submitted.")).toBeTruthy();
+    expect((await screen.findAllByText("Not submitted.")).length).toBeGreaterThan(0);
     expect(screen.queryByRole("region", { name: "Your grade" })).toBeNull();
   });
 

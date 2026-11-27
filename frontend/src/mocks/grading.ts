@@ -24,7 +24,9 @@ import type {
   StartRunResponse,
 } from "../types/grading";
 import { visibleAssignment } from "./access";
+import { writeAudit } from "./audit";
 import { error, isRecord, json, route, type MockContext, type MockHandler } from "./http";
+import { controlsFor } from "./oversight";
 import { MOCK_USERS, type MockAssignment, type MockProposedGrade, type MockSubmission, type MockWorld } from "./state";
 
 const floorHalf = (n: number) => Math.floor(n * 2) / 2;
@@ -231,7 +233,36 @@ export const gradingHandler: MockHandler = (req, ctx) => {
     const todo = ctx.world.submissions.filter(
       (s) => s.assignment_id === a.id && !ctx.world.proposed.some((g) => g.submission_id === s.id && g.status !== "rejected"),
     );
-    todo.forEach((s, i) => ctx.world.proposed.push(gradeSubmission(ctx.world, a, s, i)));
+    writeAudit(ctx, { action: "start_grading_run", course_id: a.course_id, args_redacted: { assignment_id: a.id }, result_summary: { run_id: run.id, submissions: todo.length } });
+    if (controlsFor(ctx.world, a.course_id).agents_paused) {
+      // MOCK(E10): C30. While paused, the harness sends every submission to the manual queue.
+      for (const s of todo) {
+        const queueId = ctx.world.newId();
+        ctx.world.manualQueue.push({ id: queueId, submission_id: s.id, reason_code: "paused", created_at: run.started_at, resolved_by: null, resolved_at: null });
+        writeAudit(ctx, { actor_kind: "agent", actor_id: "grading-agent", on_behalf_of: run.id, course_id: a.course_id, action: "send_to_manual_queue", args_redacted: { submission_id: s.id, reason_code: "paused" }, result_summary: { queue_id: queueId } });
+      }
+      const paused: StartRunResponse = { run_id: run.id, submissions: 0, sent_to_manual_queue: todo.length };
+      return json(201, paused);
+    }
+    const graded = todo.map((s, i) => gradeSubmission(ctx.world, a, s, i));
+    for (const g of graded) {
+      ctx.world.proposed.push(g);
+      writeAudit(ctx, { actor_kind: "agent", actor_id: "grading-agent", on_behalf_of: run.id, course_id: a.course_id, action: "model_call", model_id: "fake-grader", prompt_version: "grader@mock", args_redacted: { role: "grader", submission_id: g.submission_id } });
+      writeAudit(ctx, { actor_kind: "agent", actor_id: "grading-agent", on_behalf_of: run.id, course_id: a.course_id, action: "store_proposed_grade", result_summary: { proposed_grade_id: g.id, flags: g.flags.length } });
+    }
+    // MOCK(E11): the full-marks-rate alert rule (starting threshold: more than 25% of a run).
+    const fullMarks = graded.filter((g) => g.flags.includes("full_marks")).length;
+    if (graded.length > 0 && fullMarks / graded.length > 0.25) {
+      ctx.world.alerts.push({
+        id: ctx.world.newId(),
+        course_id: a.course_id,
+        rule: "full_marks_rate",
+        severity: "high",
+        created_at: run.started_at,
+        details: { run_id: run.id, full_marks: fullMarks, graded: graded.length },
+        acknowledged_by: null,
+      });
+    }
     const body: StartRunResponse = { run_id: run.id, submissions: todo.length };
     return json(201, body);
   }
@@ -315,6 +346,18 @@ export const gradingHandler: MockHandler = (req, ctx) => {
       g.status = "released";
       g.released_at = at;
     }
+    writeAudit(ctx, {
+      action: "approve_release",
+      course_id: ctx.world.assignments.find((x) => x.id === valid[0]!.assignment_id)?.course_id ?? null,
+      args_redacted: {
+        proposed_grade_ids: valid.map((g) => g.id),
+        // Before and after values of every instructor change (A5), numbers only (§8).
+        score_changes: valid.flatMap((g) =>
+          g.changes.map((c) => ({ proposed_grade_id: g.id, criterion_id: c.criterion_id, before: c.before, after: c.after })),
+        ),
+      },
+      result_summary: { released: valid.length },
+    });
     const response: ApproveResponse = { released: valid.length };
     return json(200, response);
   }
