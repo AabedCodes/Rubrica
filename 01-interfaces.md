@@ -347,9 +347,9 @@ All under `/api`. JSON in and out. Every route declares its required role and ca
 | Auth | `POST /auth/login`, `POST /auth/totp`, `POST /auth/reauth`, `POST /auth/logout`, `GET /auth/csrf`, `GET /me` | E |
 | Courses | `GET /courses`, `GET /courses/{id}` | E |
 | Materials | `POST /courses/{id}/materials` (upload), `POST /materials/{id}/publish` | D |
-| Assignments | `POST /courses/{id}/assignments`, `PUT /assignments/{id}/rubric`, `PUT /assignments/{id}/answer-key`, `POST /assignments/{id}/publish` | D |
+| Assignments | `GET /courses/{id}/assignments`, `POST /courses/{id}/assignments`, `GET /assignments/{id}`, `PUT /assignments/{id}/rubric`, `GET /assignments/{id}/answer-key` (instructor), `PUT /assignments/{id}/answer-key`, `POST /assignments/{id}/answer-key/accept` (re-auth), `POST /assignments/{id}/publish` (re-auth) | D |
 | Submissions | `POST /assignments/{id}/submissions`, `GET /assignments/{id}/my-submission`, `GET /submissions/{id}/extracted-text` (instructor) | D |
-| Grading | `POST /assignments/{id}/grading-runs`, `GET /assignments/{id}/proposed-grades`, `POST /proposed-grades/approve` (re-auth), `GET /courses/{id}/manual-queue`, `POST /manual-queue/{id}/resolve` | C (runs), D (approve, release) |
+| Grading | `POST /assignments/{id}/grading-runs`, `GET /assignments/{id}/proposed-grades`, `GET /proposed-grades/{id}` (instructor), `POST /proposed-grades/approve` (re-auth), `GET /courses/{id}/manual-queue`, `POST /manual-queue/{id}/resolve` | C (runs, detail), D (approve, release) |
 | Chat | `POST /courses/{id}/chat` | C |
 | Instructor agent | `POST /courses/{id}/instructor-agent`, `GET /drafts/{id}`, `POST /drafts/{id}/accept` (re-auth for keys) | C |
 | Appeals | `GET /courses/{id}/appeals`, `POST /grade-change-proposals/{id}/decide` (re-auth) | C, D |
@@ -359,6 +359,82 @@ All under `/api`. JSON in and out. Every route declares its required role and ca
 | Exports | `GET /assignments/{id}/export.csv` | D |
 
 Security headers on every response (A and E): `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, plus `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+
+### 10.1 Conventions (owners: E for auth and errors, every route owner applies them)
+
+- **IDs and times.** IDs are UUID strings; times are ISO 8601 strings with a time zone (`timestamptz`, §3).
+- **Errors.** Every non-2xx response is `{"error": "<code>"}` with one fixed code and no other text, the same rule as C33. Request content is never echoed.
+
+  | HTTP | Codes |
+  |---|---|
+  | 400 | `invalid_request` (shape, range or state), `deadline_passed` (submission after `due_at`) |
+  | 401 | `unauthenticated`, `invalid_credentials`, `totp_invalid`, `reauth_required` (C28: the client asks for a TOTP code, then retries once) |
+  | 403 | `csrf_invalid`, `forbidden` (the caller's role can't do this in a course they belong to) |
+  | 404 | `not_found`, also when the caller isn't allowed to know the record exists (same rule as `E_NOT_FOUND`, §5) |
+  | 429 | `rate_limited` |
+  | 500 | `internal` |
+
+- **Per-record routes.** Routes addressed by a submission, proposed grade, draft or proposal ID answer `404` (not `403`) to anyone who can't see that record, so a student can't learn that another student's record exists.
+- **Uploads.** `POST /assignments/{id}/submissions` and `POST /courses/{id}/materials` take `multipart/form-data`. Everything else is JSON.
+- **Model-written text** (feedback, rationales, chat replies) is returned as stored. The browser renders it only through the safe Markdown component (C07, A3).
+
+### 10.2 Request and response bodies
+
+Field names follow §3.1. A `?` marks an optional field; `T[]` is a list.
+
+**Auth and identity (E)**
+
+| Route | Request | Response |
+|---|---|---|
+| `GET /auth/csrf` | — | `{csrf_token}` |
+| `POST /auth/login` | `{email, password}` | `{status: "ok"}`, or `{status: "totp_required"}` for instructors (C27), who continue with `/auth/totp` |
+| `POST /auth/totp`, `POST /auth/reauth` | `{code}` | `204` |
+| `POST /auth/logout` | — | `204` |
+| `GET /me` | — | `{id, display_name, role: "student"\|"instructor"}` |
+| `GET /courses` | — | `[{id, code, title, role}]`, with `role` from `enrollments.role` |
+
+**Assignments and keys (D)**
+
+| Route | Request | Response |
+|---|---|---|
+| `GET /courses/{id}/assignments` | — | `[{id, course_id, title, status, due_at}]`; students get `published` only |
+| `POST /courses/{id}/assignments` | `{title, instructions, due_at}` | `Assignment` (status `draft`) |
+| `GET /assignments/{id}` | — | `Assignment` = summary + `{instructions, version, criteria: [{id, position, label, max_points, kind}]}`; drafts are `404` to students |
+| `PUT /assignments/{id}/rubric` | `{criteria: [{label, max_points, kind}]}` | `Assignment` |
+| `GET /assignments/{id}/answer-key` | — | `{assignment_id, status: "draft"\|"approved", version, entries: [{criterion_id, content, expected?}]}`; instructors only, never students (T-01) |
+| `PUT /assignments/{id}/answer-key` | `{entries: [{criterion_id, content, expected?}]}`; `expected` is required for objective criteria, as in §3.1 | the key, `status: "draft"` |
+| `POST /assignments/{id}/answer-key/accept` | — | the key, `status: "approved"`; re-auth; goes through the release service (D6) |
+| `POST /assignments/{id}/publish` | — | `Assignment` (status `published`); re-auth |
+
+**Submissions (D)**
+
+| Route | Request | Response |
+|---|---|---|
+| `POST /assignments/{id}/submissions` | multipart: `body_text`, `objective_answers` (a JSON object, criterion ID → answer string), `file?` (PDF) | `201 {id}`; replaces the student's earlier submission; `deadline_passed` after `due_at` |
+| `GET /assignments/{id}/my-submission` | — | `{id, submitted_at, body_text, objective_answers, file_name?, grade?}`; `404` if none. `grade` appears only once released (R10): `{total, max_total, released_at, criteria: [{criterion_id, label, kind, max_points, score, feedback?}]}` |
+| `GET /submissions/{id}/extracted-text` | — | `{submission_id, text}`: exactly the string the grader read (C36) |
+
+**Grading and review (C for runs and detail, D for approve and release)**
+
+| Route | Request | Response |
+|---|---|---|
+| `POST /assignments/{id}/grading-runs` | — | `201 {run_id, submissions}` (how many were queued) |
+| `GET /assignments/{id}/proposed-grades` | — | `[{id, submission_id, student: {id, display_name}, total, max_total, status, flags}]` |
+| `GET /proposed-grades/{id}` | — | the row above + `{assignment_id, assignment_title, criteria: [CriterionReview], citations: [{url, claim, verdict}]}` |
+| `POST /proposed-grades/approve` | `{proposed_grade_ids, score_changes?}`; `score_changes` maps grade ID → criterion ID → new score | `{released}`; re-auth; all or nothing |
+
+- `CriterionReview` = `{criterion_id, label, kind, max_points, attempt1, attempt2, proposed, feedback?, quotes: [{text, found}], objective?: {answer?, expected, mark}}`.
+- `flags` uses the §7 names. `outlier` is computed by the server when the list or detail is requested (§7).
+- Each score in `score_changes` must be within 0 and the criterion's maximum, in steps of 0.5; otherwise the whole request fails with `invalid_request`. Every change is written to the audit log with its before and after values.
+
+### 10.3 Open questions for the owners
+
+These are assumed by the front end today (A2, A5 worklogs) and need an owner's decision:
+
+1. **Does approving release at once?** (D) §3.1 has separate `approved` and `released` statuses. The front end assumes approve hands the grade to the release service, which releases it in the same step.
+2. **Can a rubric change after publishing?** (D) The front end shows a published rubric read-only.
+3. **What happens to the key when the rubric is saved?** (D) Criterion IDs change, so the old key no longer matches. The front end assumes it's cleared.
+4. **Limits.** (D) The largest `max_points` (the front end uses 100) and the largest PDF (the front end uses 10 MB).
 
 ---
 
