@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { ApiError } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import { ErrorNotice } from "../../components/ErrorNotice";
+import { GradeActions } from "../../components/GradeActions";
 import { ReleasedGradeView } from "../../components/GradeBits";
 import { contentRoutes } from "../../endpoints";
 import { useLoad } from "../../hooks/useLoad";
@@ -45,7 +46,12 @@ export function MyGradesPage() {
             </h2>
             {!mine && <p className="muted">Not submitted.</p>}
             {mine && !mine.grade && <p className="muted">Submitted; not released yet.</p>}
-            {mine?.grade && <ReleasedGradeView grade={mine.grade} />}
+            {mine?.grade && (
+              <>
+                <ReleasedGradeView grade={mine.grade} />
+                <GradeActions courseId={courseId} submissionId={mine.id} assignmentTitle={assignment.title} />
+              </>
+            )}
           </article>
         ))}
     </section>

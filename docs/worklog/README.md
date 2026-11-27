@@ -24,6 +24,7 @@ Add a line for your entry here, newest first.
 
 | Date | Task | Entry | Author |
 |---|---|---|---|
+| 2026-11-28 | A6 | [Chat panel, appeals, blog, materials](2026-11-28-A6-chat-appeals-blog-materials.md) | A |
 | 2026-11-28 | A7 | [Confirmation screens, manual queue, audit view, pause](2026-11-28-A7-confirm-audit-pause.md) | A |
 | 2026-11-27 | A5 | [Review screen](2026-11-27-A5-review-screen.md) | A |
 | 2026-11-27 | A2 | [Walking-skeleton screens](2026-11-27-A2-walking-skeleton-screens.md) | A |

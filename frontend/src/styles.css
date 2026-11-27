@@ -154,3 +154,19 @@ textarea { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--border
 .filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
 .filters label { margin-bottom: 0; }
 .row-denied { background: #fff0f0; }
+
+/* A6: chat, blog, materials. */
+.chat { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.chat li { border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.8rem; background: var(--surface); max-width: 48rem; }
+.chat-student { align-self: flex-end; background: #eef3ff !important; }
+.chat-ai { border-left: 4px solid var(--accent) !important; }
+.chat-notice { background: var(--warn-bg) !important; border-color: var(--warn-border) !important; font-weight: 600; }
+ul.badges { list-style: none; padding: 0; margin: 0.4rem 0 0; }
+.source-instructor { border-color: #1a7f37; }
+.source-third_party { border-color: #8a6d00; background: #fff8e0; }
+.source-blog_post { border-color: var(--accent); }
+.source-student_comment { border-color: var(--danger); background: #fff0f0; }
+.comments { list-style: none; padding-left: 1rem; border-left: 2px solid var(--border); }
+.comments li { margin-bottom: 0.6rem; }
+.grade-actions { margin: 0.5rem 0 1rem; }
+label.inline { flex-direction: row; align-items: center; gap: 0.4rem; }

@@ -23,6 +23,15 @@ import type {
   ManualQueueItem,
   ResolveRequest,
 } from "./types/oversight";
+import type {
+  AppealRequest,
+  BlogComment,
+  BlogPost,
+  ChatRequest,
+  ChatResponse,
+  Material,
+  MaterialText,
+} from "./types/student";
 
 const enc = encodeURIComponent;
 
@@ -80,5 +89,26 @@ export function oversightRoutes(api: ApiClient) {
     /** Re-auth (C28, C30). */
     pause: (courseId: string, reason: string) => api.post<CourseControls>(`/courses/${enc(courseId)}/pause`, { reason }),
     resume: (courseId: string) => api.post<CourseControls>(`/courses/${enc(courseId)}/resume`),
+  };
+}
+
+/** A6: chat, appeals, blog and materials. */
+export function studentRoutes(api: ApiClient) {
+  return {
+    chat: (courseId: string, body: ChatRequest) => api.post<ChatResponse>(`/courses/${enc(courseId)}/chat`, body),
+    /** ASSUMED route. */
+    openAppeal: (submissionId: string, body: AppealRequest) => api.post<{ appeal_id: string }>(`/submissions/${enc(submissionId)}/appeals`, body),
+    blogPosts: (courseId: string) => api.get<BlogPost[]>(`/courses/${enc(courseId)}/blog/posts`),
+    createPost: (courseId: string, body: string) => api.post<BlogPost>(`/courses/${enc(courseId)}/blog/posts`, { body }),
+    comment: (postId: string, body: string) => api.post<BlogComment>(`/posts/${enc(postId)}/comments`, { body }),
+    deletePost: (postId: string) => api.delete<void>(`/posts/${enc(postId)}`),
+    deleteComment: (commentId: string) => api.delete<void>(`/comments/${enc(commentId)}`),
+    /** ASSUMED route. */
+    materials: (courseId: string) => api.get<Material[]>(`/courses/${enc(courseId)}/materials`),
+    uploadMaterial: (courseId: string, form: FormData) => api.postForm<Material>(`/courses/${enc(courseId)}/materials`, form),
+    /** ASSUMED route. */
+    materialText: (id: string) => api.get<MaterialText>(`/materials/${enc(id)}/extracted-text`),
+    /** Re-auth (C04, C28). */
+    publishMaterial: (id: string) => api.post<Material>(`/materials/${enc(id)}/publish`),
   };
 }

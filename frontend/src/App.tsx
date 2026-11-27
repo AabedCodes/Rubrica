@@ -20,6 +20,9 @@ import { CourseSettingsPage } from "./pages/oversight/CourseSettingsPage";
 import { DraftConfirmPage, DraftsPage } from "./pages/oversight/DraftPages";
 import { ManualItemPage, ManualQueuePage } from "./pages/oversight/ManualQueuePages";
 import { ProposalConfirmPage } from "./pages/oversight/ProposalConfirmPage";
+import { BlogPage } from "./pages/student/BlogPage";
+import { ChatPage } from "./pages/student/ChatPage";
+import { MaterialPage, MaterialsPage } from "./pages/student/MaterialsPages";
 import { TotpPage } from "./pages/TotpPage";
 
 /** Screens that are built; the rest show a placeholder naming their task. */
@@ -31,6 +34,9 @@ const SCREEN_ELEMENTS: Partial<Record<string, ReactNode>> = {
   "manual-queue": <ManualQueuePage />,
   audit: <AuditPage />,
   settings: <CourseSettingsPage />,
+  chat: <ChatPage />,
+  blog: <BlogPage />,
+  materials: <MaterialsPage />,
 };
 
 /** A7 detail screens (instructor only). */
@@ -38,6 +44,7 @@ const INSTRUCTOR_DETAIL_ROUTES: [string, ReactNode][] = [
   ["courses/:courseId/proposals/:proposalId", <ProposalConfirmPage />],
   ["courses/:courseId/drafts/:draftId", <DraftConfirmPage />],
   ["courses/:courseId/manual-queue/:queueId", <ManualItemPage />],
+  ["courses/:courseId/materials/:materialId", <MaterialPage />],
 ];
 
 function RequireAuth({ children }: { children: ReactNode }) {

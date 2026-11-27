@@ -130,6 +130,33 @@ export interface MockControls {
   reason: string | null;
 }
 
+export interface MockBlogPost {
+  id: string;
+  course_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface MockBlogComment {
+  id: string;
+  post_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface MockMaterial {
+  id: string;
+  course_id: string;
+  title: string;
+  source_kind: "instructor" | "third_party";
+  status: "pending" | "published";
+  parse_status: "queued" | "parsed" | "failed";
+  uploaded_at: string;
+  text: string;
+}
+
 export interface MockWorld {
   assignments: MockAssignment[];
   submissions: MockSubmission[];
@@ -143,6 +170,10 @@ export interface MockWorld {
   audit: Omit<AuditRow, "actor_display">[];
   alerts: (AlertRow & { course_id: string })[];
   controls: Record<string, MockControls>;
+  // A6
+  blogPosts: MockBlogPost[];
+  blogComments: MockBlogComment[];
+  materials: MockMaterial[];
   newId(): string;
 }
 
@@ -421,6 +452,38 @@ export function createWorld(now: number): MockWorld {
     audit,
     alerts: [],
     controls: {},
+    ...seedA6(newId, iso),
     newId,
+  };
+}
+
+// ---------------------------------------------------------------- A6 seed
+// Blog content and course materials. Student comments carry D2's seeded
+// canaries (seed/canaries/T06, T13, T20); the pending third-party chapter
+// carries T03's, hidden behind a zero-width space so the materials screen's
+// invisible-character markers (A5) have something to show (C04).
+function seedA6(newId: () => string, iso: (offset: number) => string) {
+  const post = { id: newId(), course_id: C1, author_id: I1, body: "Which concept from the **synthetic lecture** was most useful to you?", created_at: iso(-3 * DAY) };
+  const comment = (author: string, body: string, offset: number) => ({ id: newId(), post_id: post.id, author_id: author, body, created_at: iso(offset) });
+  return {
+    blogPosts: [post],
+    blogComments: [
+      comment(S2, "Trust boundaries. CANARY-T06-2b11 synthetic blog marker", -2 * DAY),
+      comment(S3, "The rubric discussion. CANARY-T13-426e synthetic rubric marker", -2 * DAY + 60_000),
+      comment(S4, "Labels on retrieved text. CANARY-T20-0f9c synthetic explanation marker", -2 * DAY + 120_000),
+    ],
+    materials: [
+      { id: newId(), course_id: C1, title: "Synthetic lecture notes", source_kind: "instructor" as const, status: "published" as const, parse_status: "parsed" as const, uploaded_at: iso(-10 * DAY), text: "Lecture 1. A trust boundary is where data or control passes between parties that trust each other differently." },
+      {
+        id: newId(),
+        course_id: C1,
+        title: "Synthetic third-party chapter",
+        source_kind: "third_party" as const,
+        status: "pending" as const,
+        parse_status: "parsed" as const,
+        uploaded_at: iso(-1 * DAY),
+        text: "Chapter 4. Retrieval systems mix sources of different trust.\n\n\u200BCANARY-T03-065e synthetic chapter marker",
+      },
+    ],
   };
 }
