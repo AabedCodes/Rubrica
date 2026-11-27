@@ -125,3 +125,18 @@ button.primary { font-weight: 600; }
 .label-ai { display: block; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 textarea { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; }
+
+/* A5: review screen (C36). */
+.review-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+@media (max-width: 960px) { .review-grid { grid-template-columns: minmax(0, 1fr); } }
+.extracted .note { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 6px; padding: 0.5rem 0.75rem; }
+.extracted-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; max-height: 70vh; overflow: auto; }
+.invisible-mark { background: #ffd6d6; color: var(--danger); border-radius: 3px; padding: 0 0.15rem; font-weight: 700; }
+.flags-box { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 8px; padding: 0.5rem 1rem; margin-bottom: 1rem; }
+.flags-box ul { margin: 0.25rem 0; padding-left: 1rem; }
+.table.compact td, .table.compact th { padding: 0.3rem 0.5rem; }
+.table input[type="number"] { width: 5.5rem; }
+.changed { color: var(--accent); font-weight: 600; }
+.ai-box { border-left: 3px solid var(--border); padding-left: 0.75rem; margin: 0.5rem 0; }
+.quotes { padding-left: 1rem; }
+.criterion-review h3 { font-size: 1rem; }

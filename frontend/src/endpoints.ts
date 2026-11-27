@@ -12,7 +12,7 @@ import type {
   PutAnswerKeyRequest,
   PutRubricRequest,
 } from "./types/content";
-import type { ApproveRequest, ApproveResponse, ProposedGradeRow, StartRunResponse } from "./types/grading";
+import type { ApproveRequest, ApproveResponse, ExtractedText, ProposedGradeDetail, ProposedGradeRow, StartRunResponse } from "./types/grading";
 
 const enc = encodeURIComponent;
 
@@ -39,6 +39,10 @@ export function gradingRoutes(api: ApiClient) {
   return {
     startRun: (assignmentId: string) => api.post<StartRunResponse>(`/assignments/${enc(assignmentId)}/grading-runs`),
     proposedGrades: (assignmentId: string) => api.get<ProposedGradeRow[]>(`/assignments/${enc(assignmentId)}/proposed-grades`),
+    /** ASSUMED route (A5). */
+    proposedGrade: (id: string) => api.get<ProposedGradeDetail>(`/proposed-grades/${enc(id)}`),
+    /** §10, instructor only: exactly the text the grader read (C36). */
+    extractedText: (submissionId: string) => api.get<ExtractedText>(`/submissions/${enc(submissionId)}/extracted-text`),
     /** Re-auth (C28). */
     approve: (body: ApproveRequest) => api.post<ApproveResponse>("/proposed-grades/approve", body),
   };

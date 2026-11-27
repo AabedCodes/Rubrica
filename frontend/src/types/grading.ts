@@ -38,8 +38,74 @@ export interface StartRunResponse {
  */
 export interface ApproveRequest {
   proposed_grade_ids: string[];
+  /** A5: optional instructor score changes (see ScoreChanges). */
+  score_changes?: ScoreChanges;
 }
 
 export interface ApproveResponse {
   released: number;
 }
+
+/* ---------------------------------------------------------------- A5 review detail */
+
+/** A quote the grader relied on, and whether code found it verbatim in the text (§7 rule 5). */
+export interface QuoteCheck {
+  text: string;
+  found: boolean;
+}
+
+/** Objective criteria are marked by code against the key (C20); shown to instructors only. */
+export interface ObjectiveMark {
+  answer: string | null;
+  expected: string;
+  mark: number;
+}
+
+export interface CriterionReview {
+  criterion_id: string;
+  label: string;
+  kind: "objective" | "open";
+  max_points: number;
+  attempt1: number;
+  attempt2: number;
+  proposed: number;
+  /** Model-written: render with SafeMarkdown, labelled as written by the AI grader. */
+  feedback: string | null;
+  quotes: QuoteCheck[];
+  objective: ObjectiveMark | null;
+}
+
+/** §3.1 citation_verdicts.verdict. */
+export type CitationVerdict = "supports" | "does_not_support" | "unrelated" | "unreadable";
+
+export interface CitationReview {
+  url: string;
+  claim: string;
+  verdict: CitationVerdict;
+}
+
+/**
+ * ASSUMED route (A5): GET /proposed-grades/{id}, instructors of the course only.
+ * §10 has no route for one proposed grade with its attempts, quotes and
+ * citations; the review screen (C36) needs all of them. `flags` includes
+ * `outlier`, computed by the server when the screen loads (§7).
+ */
+export interface ProposedGradeDetail extends ProposedGradeRow {
+  assignment_id: string;
+  assignment_title: string;
+  criteria: CriterionReview[];
+  citations: CitationReview[];
+}
+
+/** §10 GET /submissions/{id}/extracted-text (instructor). ASSUMED body. */
+export interface ExtractedText {
+  submission_id: string;
+  text: string;
+}
+
+/**
+ * ASSUMED addition to §10 POST /proposed-grades/approve (A5): the instructor's
+ * per-criterion changes, keyed by proposed grade ID, then criterion ID. The
+ * server checks each against the criterion maximum and audits before and after.
+ */
+export type ScoreChanges = Record<string, Record<string, number>>;
