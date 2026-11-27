@@ -98,3 +98,9 @@ main { flex: 1; padding: 1.5rem; max-width: 72rem; }
   .body { flex-direction: column; }
   .sidenav { width: auto; border-right: 0; border-bottom: 1px solid var(--border); }
 }
+
+/* SafeMarkdown (A3, C07): images and blocked links become visible plain text. */
+.safe-markdown { overflow-wrap: anywhere; }
+.safe-markdown pre { overflow-x: auto; padding: 0.6rem; background: var(--bg); border-radius: 6px; }
+.removed { color: var(--muted); font-style: italic; }
+.link-removed { text-decoration: underline dotted; }

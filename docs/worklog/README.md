@@ -24,6 +24,7 @@ Add a line for your entry here, newest first.
 
 | Date | Task | Entry | Author |
 |---|---|---|---|
+| 2026-11-27 | A3 | [SafeMarkdown and the HTML-sink lint rule](2026-11-27-A3-safe-markdown.md) | A |
 | 2026-11-27 | A1 | [React shell and npm hardening](2026-11-27-A1-react-shell.md) | A |
 | 2026-11-26 | D7 | [Course blog indexing](2026-11-26-D7-blog-indexing.md) | D |
 | 2026-11-26 | D8 | [Citation fetch service](2026-11-26-D8-citation-fetch-service.md) | D |
