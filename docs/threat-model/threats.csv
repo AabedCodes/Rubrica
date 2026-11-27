@@ -1,0 +1,38 @@
+id,threat,stride,boundary,likelihood,impact,risk,level,optional_feature
+T-01,Chat agent reveals the answer key,Information disclosure,"TB-4, TB-8",4,5,20,Critical,no
+T-02,Appeal text makes the instructor agent propose a grade change,Elevation of privilege,TB-7,4,5,20,Critical,no
+T-03,Poisoned third-party course source steers grading,Tampering,"TB-14, TB-13, TB-12",4,5,20,Critical,no
+T-04,Hidden instruction in a submission raises the grade,Tampering,TB-3,5,4,20,Critical,no
+T-05,Student claims another student's identity in chat,Spoofing,"TB-4, TB-8",5,4,20,Critical,no
+T-06,Blog comment makes the chat agent leak another student's feedback (optional: blog),Information disclosure,TB-5,5,4,20,Critical,yes
+T-07,Cited web page makes the grading agent call a grade tool (optional: web),Tampering,"TB-6, TB-13, TB-8",5,4,20,Critical,yes
+T-08,Cited URL makes the fetcher read internal addresses (optional: web),Elevation of privilege,TB-10,4,4,16,High,yes
+T-09,Reply leaks private text through a Markdown image,Information disclosure,"TB-11, TB-5",4,4,16,High,no
+T-10,Script in rendered feedback runs in the browser (XSS),Tampering,TB-11,4,4,16,High,no
+T-11,Injected link in the release email,Tampering,TB-11,4,4,16,High,no
+T-12,Model-supplied score or ID is trusted when grades are stored,Tampering,"TB-8, TB-11",4,4,16,High,no
+T-13,Blog comment or outside excerpt read as a rubric rule while grading (optional: blog),Tampering,"TB-14, TB-13",4,4,16,High,yes
+T-14,Upload metadata passes a student file off as an answer key,Spoofing,"TB-1, TB-14",4,4,16,High,no
+T-15,Typosquatted package runs in the document parser,Tampering,TB-12,3,5,15,High,no
+T-16,AI-hallucinated package installed in the backend (slopsquatting),Tampering,TB-12,3,5,15,High,no
+T-17,Mutable CI action or base image swapped upstream,Tampering,TB-12,3,5,15,High,no
+T-18,Changed MCP tool description steers the agents,Tampering,"TB-8, TB-12",3,5,15,High,no
+T-19,Leaked database or backup credential exposes coursework and keys,Information disclosure,"TB-14, TB-9",3,5,15,High,no
+T-20,Blog comment makes the chat agent teach a wrong explanation (optional: blog),Tampering,TB-5,5,3,15,High,yes
+T-21,Cited web page fools the evidence checker (optional: web),Tampering,TB-6,5,3,15,High,yes
+T-22,Hosted model provider receives more student data than allowed,Information disclosure,TB-9,3,4,12,High,no
+T-23,Missing ownership filter returns another student's records,Information disclosure,TB-8,3,4,12,High,no
+T-24,Release email goes to a recipient picked from model text,Information disclosure,TB-11,3,4,12,High,no
+T-25,Chat flood drains the course API budget,Denial of service,"TB-4, TB-9",4,3,12,High,no
+T-26,Upload and grading-job flood exhausts the parser or the API quota,Denial of service,"TB-1, TB-14",4,3,12,High,no
+T-27,Student fetches an unpublished assignment or key through the API,Information disclosure,TB-1,3,4,12,High,no
+T-28,Account takeover with a reused password,Spoofing,TB-1,3,4,12,High,no
+T-29,Hidden text in a scanned answer steers the grader,Tampering,TB-3,4,3,12,High,no
+T-30,Model file runs code when loaded,Elevation of privilege,TB-12,2,5,10,Medium,no
+T-31,Stolen instructor session approves releases,Spoofing,TB-2,2,5,10,Medium,no
+T-32,Missing audit evidence for a disputed grade change,Repudiation,"TB-2, TB-8",3,3,9,Medium,no
+T-33,Model-written email headers impersonate an instructor,Spoofing,TB-11,3,3,9,Medium,no
+T-34,Formula in an exported grade report runs when opened,Tampering,TB-11,3,3,9,Medium,no
+T-35,Student says the chat agent promised a regrade,Repudiation,TB-4,4,2,8,Medium,no
+T-36,Swapped embedding-model revision changes what is retrieved,Tampering,TB-12,2,4,8,Medium,no
+T-37,Confident writing style nudges the grade,Tampering,TB-3,4,2,8,Medium,no

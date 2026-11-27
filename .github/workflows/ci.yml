@@ -103,6 +103,11 @@ jobs:
       - name: Verification report
         if: always()
         run: uv run --project backend --frozen python scripts/verify_report.py build/verification/results.json --out build/verification/report
+      - name: Coverage check (B8; reports gaps, fails from the 4 Dec freeze)
+        if: always()
+        run: >-
+          uv run --project backend --frozen python scripts/check_coverage.py
+          --results build/verification/results.json --out build/verification/coverage.md
       - name: Upload verification evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
