@@ -76,3 +76,23 @@ def test_missing_lockfiles(tmp_path):
 def test_this_repository_is_pinned():
     findings = cp.check(REPO_ROOT)
     assert findings == [], "\n".join(map(str, findings))
+
+
+def test_workflow_service_container_must_be_pinned(tmp_path):
+    lines = [
+        "jobs:",
+        "  db:",
+        "    services:",
+        "      postgres:",
+        "        image: postgres:18",
+        "      cache:",
+        f"        image: redis@{DIGEST}",
+    ]
+    root = make_repo(
+        tmp_path,
+        workflow="\n".join(lines) + "\n",
+        compose="services: {}\n",
+        dockerfile="FROM scratch\n",
+    )
+    messages = [str(f) for f in cp.check(root)]
+    assert len(messages) == 1 and "postgres:18" in messages[0]

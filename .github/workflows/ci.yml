@@ -66,6 +66,51 @@ jobs:
       - name: Actions, images and FROM lines pinned; lockfiles present
         run: python3 scripts/check_pins.py .
 
+  db-tests:
+    # RLS (B4), D1 database tests and verification tests (B1) against a real
+    # PostgreSQL. Before this job they skipped in CI.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector@sha256:508c5290cda481d4f5f846446a26e9c1b804766828a394a5861de1b348a18b4c # 0.8.1-pg18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: rubrica_owner
+          POSTGRES_DB: rubrica
+        ports:
+          - "55432:5432"
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U rubrica_owner -d rubrica"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      RUBRICA_D1_TEST_PORT: "55432"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.13"
+          enable-cache: false
+      - name: Install (hash-locked)
+        run: uv sync --project backend --frozen
+      - name: RLS, database and verification tests
+        run: >-
+          uv run --project backend --frozen pytest tests/authz tests/verification -rxX
+          --verification-results=build/verification/results.json
+      - name: Verification report
+        if: always()
+        run: uv run --project backend --frozen python scripts/verify_report.py build/verification/results.json --out build/verification/report
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-report
+          path: build/verification/
+          if-no-files-found: warn
+
   compose-smoke:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

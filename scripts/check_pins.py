@@ -52,6 +52,12 @@ def _rel(root: Path, path: Path) -> str:
 def check_workflow(root: Path, path: Path) -> list[Finding]:
     findings = []
     for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        # Service and job containers (`image:`) are pulled images too.
+        img = IMAGE.match(line)
+        if img and not DIGEST.search(img.group(1)):
+            msg = f"workflow container image not pinned by digest: {img.group(1)}"
+            findings.append(Finding(_rel(root, path), n, msg))
+            continue
         m = USES.match(line)
         if not m:
             continue
