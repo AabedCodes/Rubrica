@@ -74,14 +74,16 @@ export function createApiClient(options: ApiClientOptions = {}) {
     if (!path.startsWith("/") || path.startsWith("//")) {
       throw new Error(`API path must start with a single "/": ${path}`);
     }
+    const isForm = body instanceof FormData;
     const headers: Record<string, string> = { Accept: "application/json" };
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    // For FormData the browser sets multipart/form-data with its boundary.
+    if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
     if (STATE_CHANGING.has(method)) headers["X-CSRF-Token"] = await csrf();
 
     const response = await transport(`/api${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       credentials: "same-origin",
       cache: "no-store",
       redirect: "error",
@@ -107,6 +109,8 @@ export function createApiClient(options: ApiClientOptions = {}) {
   return {
     get: <T>(path: string, opts?: RequestOptions) => send<T>("GET", path, undefined, opts),
     post: <T>(path: string, body?: unknown, opts?: RequestOptions) => send<T>("POST", path, body, opts),
+    /** multipart/form-data upload (file submissions, material uploads). */
+    postForm: <T>(path: string, form: FormData, opts?: RequestOptions) => send<T>("POST", path, form, opts),
     put: <T>(path: string, body?: unknown, opts?: RequestOptions) => send<T>("PUT", path, body, opts),
     delete: <T>(path: string, opts?: RequestOptions) => send<T>("DELETE", path, undefined, opts),
     /** Forget the CSRF token; call when the session changes. */

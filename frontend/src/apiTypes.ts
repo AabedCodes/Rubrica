@@ -63,6 +63,7 @@ export type ApiErrorCode =
   | "forbidden"
   | "not_found"
   | "invalid_request"
+  | "deadline_passed" // ASSUMED (A2): submission after assignments.due_at
   | "internal";
 
 export interface ApiErrorBody {
