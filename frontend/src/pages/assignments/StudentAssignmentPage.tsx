@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { ApiError } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import { ErrorNotice } from "../../components/ErrorNotice";
+import { GradeActions } from "../../components/GradeActions";
 import { ReleasedGradeView } from "../../components/GradeBits";
 import { contentRoutes } from "../../endpoints";
 import { useLoad } from "../../hooks/useLoad";
@@ -52,7 +53,12 @@ export function StudentAssignmentPage({ assignmentId }: { assignmentId: string }
       </table>
 
       {mine && <SubmissionSummary assignment={a} mine={mine} />}
-      {mine?.grade && <ReleasedGradeView grade={mine.grade} />}
+      {mine?.grade && (
+        <>
+          <ReleasedGradeView grade={mine.grade} />
+          <GradeActions courseId={a.course_id} submissionId={mine.id} assignmentTitle={a.title} />
+        </>
+      )}
 
       {open ? (
         <>

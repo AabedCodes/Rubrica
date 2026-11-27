@@ -15,6 +15,7 @@ import type { Transport } from "../api";
 import { contentHandler } from "./content";
 import { gradingHandler } from "./grading";
 import { oversightHandler } from "./oversight";
+import { studentHandler } from "./student";
 import { error, json, noContent, type MockContext, type MockHandler, type MockRequest } from "./http";
 import { createWorld, ENROLLMENTS, MOCK_COURSES, MOCK_PASSWORD, MOCK_TOTP_CODE, MOCK_USERS, type MockUser } from "./state";
 
@@ -29,7 +30,7 @@ export interface MockOptions {
   now?: () => number;
 }
 
-const HANDLERS: readonly MockHandler[] = [contentHandler, gradingHandler, oversightHandler];
+const HANDLERS: readonly MockHandler[] = [contentHandler, gradingHandler, oversightHandler, studentHandler];
 
 type Session = { state: "none" } | { state: "pending_totp"; user: MockUser } | { state: "active"; user: MockUser };
 
