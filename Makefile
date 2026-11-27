@@ -2,7 +2,7 @@
 COMPOSE := docker compose -f deploy/docker-compose.yml
 UV      := uv run --project backend --frozen
 
-.PHONY: help secrets up down logs ps seed test lint verify verify-live sbom scan pins frontend-lint frontend-test
+.PHONY: help secrets up down logs ps seed test lint verify verify-live test-db-up test-db-down sbom scan pins frontend-lint frontend-test
 
 # Front end (A1). Runs only once `npm ci` has been run in frontend/, so members
 # without Node can still use `make lint` and `make test` for the Python side.
@@ -56,11 +56,40 @@ endif
 pins: ## Check that actions, images and lockfiles are pinned
 	python3 scripts/check_pins.py . || python scripts/check_pins.py .
 
-verify: ## Verification suite + evidence report (owner B)
-	@echo "make verify: framework not merged yet (owner: B)"; exit 1
+# Throwaway PostgreSQL for RLS and verification tests (B1, B4). Same pinned
+# image as deploy/docker-compose.yml; trust auth, loopback only, no volume.
+TESTDB_PORT  ?= 55432
+TESTDB_IMAGE := pgvector/pgvector@sha256:508c5290cda481d4f5f846446a26e9c1b804766828a394a5861de1b348a18b4c
+VERIFY_OUT   := build/verification
+RUNS         ?= 10
 
-verify-live: ## Probabilistic tests against the real provider (costs money)
-	@echo "make verify-live: not implemented yet (owners: B, C)"; exit 1
+test-db-up: ## Start a disposable test database on 127.0.0.1:$(TESTDB_PORT)
+	-@docker rm -f rubrica-testdb >/dev/null 2>&1
+	docker run -d --rm --name rubrica-testdb -p 127.0.0.1:$(TESTDB_PORT):5432 \
+	  -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_USER=rubrica_owner -e POSTGRES_DB=rubrica \
+	  $(TESTDB_IMAGE) >/dev/null
+	@until docker exec rubrica-testdb pg_isready -h 127.0.0.1 -U rubrica_owner -d rubrica >/dev/null 2>&1; do sleep 1; done
+	@echo "test database ready: RUBRICA_D1_TEST_PORT=$(TESTDB_PORT)"
+
+test-db-down: ## Remove the disposable test database
+	-docker rm -f rubrica-testdb >/dev/null 2>&1
+
+verify: test-db-up ## Verification + RLS suites, then docs/verification/report.md (owner B)
+	RUBRICA_D1_TEST_PORT=$(TESTDB_PORT) LLM_PROVIDER=fake $(UV) pytest tests/verification tests/authz \
+	  --verification-results=$(VERIFY_OUT)/results.json; status=$$?; \
+	  $(MAKE) -s test-db-down; \
+	  $(UV) python scripts/verify_report.py $(VERIFY_OUT)/results.json --out docs/verification || status=1; \
+	  exit $$status
+
+verify-live: test-db-up ## Probabilistic tests RUNS times on the real provider (costs money)
+	@test -n "$$LLM_PROVIDER" -a "$$LLM_PROVIDER" != fake || { echo "set LLM_PROVIDER to the real provider"; $(MAKE) -s test-db-down; exit 1; }
+	rm -f $(VERIFY_OUT)/live-*.json; \
+	for i in $$(seq 1 $(RUNS)); do \
+	  RUBRICA_D1_TEST_PORT=$(TESTDB_PORT) $(UV) pytest tests/verification -m probabilistic -q \
+	    --verification-run=$$i --verification-results=$(VERIFY_OUT)/live-$$i.json || true; \
+	done; \
+	$(MAKE) -s test-db-down; \
+	$(UV) python scripts/verify_report.py $(VERIFY_OUT)/live-*.json --out docs/verification/live
 
 sbom: ## Merged CycloneDX SBOM + AI-BOM (task E8)
 	@echo "make sbom: not implemented yet (owner: E, task E8)"; exit 1

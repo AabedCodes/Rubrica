@@ -41,3 +41,6 @@ Thumbs.db
 
 # Coding-assistant local overrides (the shared .claude/settings.json is committed)
 .claude/settings.local.json
+
+# Local test and verification output
+build/
