@@ -2,7 +2,7 @@
 COMPOSE := docker compose -f deploy/docker-compose.yml
 UV      := uv run --project backend --frozen
 
-.PHONY: help secrets up down logs ps seed test lint verify verify-live sbom scan pins frontend-lint frontend-test
+.PHONY: help secrets up down logs ps seed test lint verify verify-live sbom scan pins frontend-lint frontend-test e2e
 
 # Front end (A1). Runs only once `npm ci` has been run in frontend/, so members
 # without Node can still use `make lint` and `make test` for the Python side.
@@ -45,6 +45,9 @@ ifneq ($(FRONTEND_READY),)
 else
 	@echo "frontend-lint: skipped (run 'npm ci' in frontend/ first)"
 endif
+
+e2e: ## Browser tests on the mocked front end (Playwright; needs a browser, see frontend/playwright.config.ts)
+	cd frontend && npm run -s e2e
 
 frontend-test: ## Vitest for frontend/ (needs `npm ci` in frontend/)
 ifneq ($(FRONTEND_READY),)

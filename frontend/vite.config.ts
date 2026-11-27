@@ -1,5 +1,5 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import { assertNoMockInBuild } from "./build-guard.ts";
 
 // The `web` service (process 1) publishes 127.0.0.1:8080 and serves /api.
@@ -41,6 +41,8 @@ export default defineConfig(({ command, mode }) => {
     test: {
       environment: "jsdom",
       setupFiles: ["./src/test/setup.ts"],
+      // e2e/ holds Playwright browser tests, run with `npm run e2e`, not Vitest.
+      exclude: [...configDefaults.exclude, "e2e/**"],
       restoreMocks: true,
     },
   };
