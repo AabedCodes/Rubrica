@@ -41,6 +41,10 @@ All model calls use the scripted fake model (`LLM_PROVIDER=fake`) until the team
 
 See [`01-interfaces.md` §1](01-interfaces.md#1-repository-layout-owner-e). Each top-level area has an owner in [`CODEOWNERS`](CODEOWNERS).
 
+## Team roles
+
+Each role (A to E) has an issue labelled [`role`](../../issues?q=label%3Arole). Accept your repository invitation, open your letter's issue and comment `/claim`. A workflow assigns you, labels the issue `claimed` and puts your handle in its title. `/unclaim` releases it. Then open a PR that fills in your handle in `CODEOWNERS`.
+
 ## Contributing
 
 - `main` is protected: every change goes through a pull request with one approving review and green CI.
