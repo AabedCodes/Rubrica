@@ -6,6 +6,7 @@ set -uo pipefail
 
 COMPOSE=(docker compose -f deploy/docker-compose.yml)
 fail=0
+PY=$(command -v python3 >/dev/null 2>&1 && python3 -c "" 2>/dev/null && echo python3 || echo python)
 
 py() {  # py <service> <python code>
   "${COMPOSE[@]}" exec -T "$1" python -c "$2"
@@ -58,21 +59,48 @@ expect_fail "fetcher via web-proxy http://169.254.169.254/" fetcher \
 expect_fail "fetcher via web-proxy http://127.0.0.1:3128/" fetcher \
   "$(via_web_proxy http://127.0.0.1:3128/)"
 
-echo "== mailpit: published UI but no outbound route"
-if "${COMPOSE[@]}" exec -T mailpit wget -q -T 5 -O /dev/null https://example.com >/dev/null 2>&1; then
-  echo "FAIL  mailpit direct https://example.com (should have been blocked)"; fail=1
+echo "== mailpit: internal network only, no outbound route"
+# Plain HTTP so a TLS failure in busybox wget can't pass for a block.
+if "${COMPOSE[@]}" exec -T mailpit wget -q -T 5 -O /dev/null http://example.com >/dev/null 2>&1; then
+  echo "FAIL  mailpit direct http://example.com (should have been blocked)"; fail=1
 else
-  echo "ok    mailpit direct https://example.com (blocked)"
+  echo "ok    mailpit direct http://example.com (blocked)"
+fi
+
+echo "== edge: only published container; no route out on Linux"
+if "${COMPOSE[@]}" exec -T edge bash -c 'exec 3<>/dev/tcp/example.com/80' >/dev/null 2>&1; then
+  if docker info --format '{{.OperatingSystem}}' 2>/dev/null | grep -q 'Docker Desktop'; then
+    echo "WARN  edge can reach the internet (Docker Desktop ignores no-NAT; edge holds no secrets)"
+  else
+    echo "FAIL  edge direct example.com:80 (should have been blocked)"; fail=1
+  fi
+else
+  echo "ok    edge direct example.com:80 (blocked)"
 fi
 
 echo "== published ports reachable from the host"
 for url in "http://127.0.0.1:8080/healthz" "http://127.0.0.1:8025/readyz"; do
-  if python3 -c "import urllib.request as u; u.urlopen('$url', timeout=5)" >/dev/null 2>&1; then
+  if "$PY" -c "import urllib.request as u; u.urlopen('$url', timeout=5)" >/dev/null 2>&1; then
     echo "ok    $url"
   else
     echo "FAIL  $url not reachable from the host"; fail=1
   fi
 done
+
+# edge must never act as a forward proxy: an absolute URL still lands on web.
+if "$PY" -c "
+import urllib.request as u
+o = u.build_opener(u.ProxyHandler({'http': 'http://127.0.0.1:8080'}))
+try:
+    body = o.open('http://example.com/', timeout=5).read()
+except Exception:
+    raise SystemExit(1)
+raise SystemExit(0 if b'Example Domain' in body else 1)
+" >/dev/null 2>&1; then
+  echo "FAIL  edge forwarded a request to example.com (open proxy)"; fail=1
+else
+  echo "ok    edge refuses forward proxying"
+fi
 
 echo "== parser: no network, no secrets (T-15)"
 expect_fail "parser tcp db:5432" parser "$(tcp db 5432)"

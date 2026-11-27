@@ -10,10 +10,22 @@
       "Edit(./secrets/**)",
       "Edit(./backend/uv.lock)",
       "Edit(./frontend/package-lock.json)",
-      "Bash(cat ./secrets/*)",
-      "Bash(curl:*)",
-      "Bash(wget:*)",
-      "Bash(git push:*)"
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(git push *)",
+      "Bash(npm publish *)",
+      "Bash(uv publish *)"
+    ],
+    "ask": [
+      "Edit(./.github/workflows/**)",
+      "Edit(./prompts/**)",
+      "Edit(./backend/mcp_server/tools.py)",
+      "Edit(./backend/mcp_server/descriptions.py)",
+      "Edit(./01-interfaces.md)",
+      "Edit(./CLAUDE.md)",
+      "Edit(./.claude/**)",
+      "Bash(uv add *)",
+      "Bash(npm install *)"
     ]
   }
 }

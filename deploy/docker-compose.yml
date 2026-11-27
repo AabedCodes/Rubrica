@@ -51,9 +51,7 @@ services:
       dockerfile: deploy/backend.Dockerfile
       target: web
     command: ["python", "-m", "backend.common.placeholder", "web"]  # placeholder
-    networks: [ingress, internal]   # ingress: published port, no outbound NAT
-    ports:
-      - "127.0.0.1:${WEB_PORT:-8080}:8000"
+    networks: [internal]            # reached from the host only through edge
     environment:
       <<: *backend-env
       DB_ROLE: rubrica_web
@@ -255,11 +253,7 @@ services:
     <<: *hardened
     image: axllent/mailpit@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68  # v1.27
     user: "65534:65534"
-    # Docker can't publish ports from a container that is only on internal
-    # networks, so the UI port goes through `ingress` (no outbound NAT).
-    networks: [internal, ingress]
-    ports:
-      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    networks: [internal]            # UI reached from the host only through edge
     environment:
       MP_SMTP_BIND_ADDR: 0.0.0.0:1025
       MP_UI_BIND_ADDR: 0.0.0.0:8025
@@ -267,6 +261,34 @@ services:
       MP_DISABLE_VERSION_CHECK: "true"
     healthcheck:
       test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ------------------------------------------------------------ Edge (published ports)
+  # The only container with published ports. web and Mailpit stay on the
+  # internal network, so neither has a route out on any platform.
+  edge:
+    <<: *hardened
+    image: ubuntu/squid@sha256:c9f5212b147a766529c7b026e2bebed37b998d33d0066b658596af5eba7cc65c  # 6.10-24.10_beta
+    user: "13:13"
+    entrypoint: ["squid", "-N", "-f", "/etc/squid/squid.conf"]
+    networks: [ingress, internal]
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    volumes:
+      - ./proxy/edge.conf:/etc/squid/squid.conf:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/spool/squid:size=16m,uid=13,gid=13
+      - /var/log/squid:size=16m,uid=13,gid=13
+      - /run:size=1m,uid=13,gid=13
+    depends_on:
+      web: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -322,8 +344,9 @@ services:
 networks:
   # Proxies only: the one network with a route to the internet.
   public: {}
-  # Published ports (web, Mailpit UI). Masquerading off = inbound connections
-  # to published ports work, but containers have no outbound internet route.
+  # edge only. Masquerading off: published ports work but, on Linux, edge has
+  # no outbound route either. Docker Desktop ignores this option, so there
+  # edge (no secrets, accelerator mode only) is the one container with a route.
   ingress:
     driver: bridge
     driver_opts:

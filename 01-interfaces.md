@@ -66,7 +66,8 @@ Make targets everyone uses: `make up`, `make down`, `make seed`, `make test`, `m
 
 | Service | Diagram ID | Networks | Outbound internet | Notes |
 |---|---|---|---|---|
-| `web` | 1 | `public`, `internal` | none | Only service with a published port. Serves the built React app and `/api` |
+| `edge` | — | `ingress`, `internal` | none on Linux (no-NAT bridge); see note | Only container with published ports (`127.0.0.1:8080` → `web`, `127.0.0.1:8025` → Mailpit UI). Squid in accelerator mode: forwards to those two origins only, holds no secrets |
+| `web` | 1 | `internal` | none | Serves the built React app and `/api`; reached from the host only through `edge` |
 | `grading-agent` | 2 (2.1–2.4, 2.6) | `internal`, `llm-egress` | provider API only, through `llm-proxy` | Runs grading runs as background jobs |
 | `fetcher` | 2.5 | `internal`, `web-egress` | public web only, through `web-proxy` | No credentials of any kind |
 | `chat-agent` | 3 | `internal`, `llm-egress` | provider API only | |
@@ -76,11 +77,11 @@ Make targets everyone uses: `make up`, `make down`, `make seed`, `make test`, `m
 | `mcp-server` | 6 | `internal` | none | Streamable HTTP transport on the internal network only |
 | `release` | 7 | `internal` | none | Sends SMTP to `mailpit` only |
 | `db` | D1–D11 | `internal` | none | PostgreSQL 18 + pgvector; no published port |
-| `mailpit` | E5 | `internal` | none | Web UI bound to `127.0.0.1` |
+| `mailpit` | E5 | `internal` | none | Web UI reached through `edge` on `127.0.0.1:8025` |
 | `llm-proxy` | — | `llm-egress`, `public` | allow-list: the provider's API host only | |
 | `web-proxy` | — | `web-egress`, `public` | public internet; private, loopback, link-local and metadata ranges denied | |
 
-`internal`, `llm-egress` and `web-egress` are Docker networks with `internal: true`, so they have no route out except through a proxy. Every container runs as a non-root user with a read-only root filesystem, and every image is pinned by digest.
+`internal`, `llm-egress` and `web-egress` are Docker networks with `internal: true`, so they have no route out except through a proxy. Docker can't publish ports from a container that is only on internal networks, so published ports live on `edge`, attached to `ingress` (a bridge with IP masquerading off). Docker Desktop ignores that option, so on developer laptops `edge` alone has a route out; it holds no secrets and only forwards to `web` and Mailpit. `scripts/egress_smoke.sh` checks all of this. Every container runs as a non-root user with a read-only root filesystem, and every image is pinned by digest.
 
 Internal service calls (web → agents, web → release) are plain HTTP on the internal network with a per-service shared secret in the `X-Service-Auth` header. They are never reachable from the browser.
 
